@@ -1,5 +1,7 @@
 from common.addressing import argument_size, Addressing
-from common.constants import RESET_VECTOR, CPU_STATUS_INTERRUPT
+from common.constants import RESET_VECTOR, CPU_STATUS_INTERRUPT, CPU_STATUS_OVERFLOW, CPU_STATUS_NEGATIVE, \
+    CPU_STATUS_ZERO
+from common.utilities import signed_byte
 from cpu.memory import Memory
 from cpu.op import ops_by_code, Op
 from cpu.registers import Registers
@@ -19,17 +21,16 @@ class CPU:
                 print(f"unsupported opcode: ${opcode:x}")
                 break
             op = ops_by_code[opcode]
-            arg = self._read_arg(op)
-            self._print_instruction(op, arg)
-            jump = self._handle_instruction(op, arg)
-            if not jump:
-                self.registers.PC += op.size
+            arg = self.read_arg(op)
+            self.registers.PC += op.size
+            self.print_instruction(op, arg)
+            self.handle_instruction(op, arg)
 
-    def _print_instruction(self, op: Op, arg: int):
+    def print_instruction(self, op: Op, arg: int):
         rom_address = self.memory.translate_cpu_address_to_rom(self.registers.PC)
         print(f"[${self.registers.PC:x}:${rom_address:x}] {op.mnemonic} ${arg:x}")
 
-    def _read_arg(self, op: Op) -> int:
+    def read_arg(self, op: Op) -> int:
         begin = self.registers.PC + 1
         size = argument_size(op.addressing)
         if size == 0:
@@ -40,38 +41,71 @@ class CPU:
             return self.memory.read_word(begin)
         raise ValueError(f"unsupported argument size: {size}")
 
-    def _handle_instruction(self, op: Op, arg: int) -> bool:
+    def handle_instruction(self, op: Op, arg: int):
         match op.mnemonic:
+            case "bpl":
+                self.bpr(op, arg)
             case "jsr":
-                return self.jsr(op, arg)
+                self.jsr(op, arg)
+            case "bit":
+                self.bit(op, arg)
             case "sei":
-                return self.sei()
+                self.sei()
             case "sta":
-                return self.sta(op, arg)
+                self.sta(op, arg)
             case "lda":
-                return self.lda(op, arg)
-        raise ValueError(f"unsupported instruction: {op.mnemonic}")
+                self.lda(op, arg)
+            case _:
+                raise ValueError(f"unsupported instruction: {op.mnemonic}")
 
-    def jsr(self, op: Op, arg: int) -> bool:
+    def resolve_arg(self, op: Op, arg: int) -> int:
+        match op.addressing:
+            case Addressing.ABSOLUTE:
+                return self.memory.read_byte(arg)
+            case Addressing.IMMEDIATE:
+                return arg
+            case Addressing.RELATIVE:
+                return self.registers.PC + signed_byte(arg)
+            case _:
+                raise ValueError(f"unsupported addressing mode: {op.addressing.name}")
+
+    def bpr(self, op: Op, arg: int):
+        value = self.resolve_arg(op, arg)
+        if not self.registers.is_p(CPU_STATUS_NEGATIVE):
+            self.registers.PC = value
+
+    def jsr(self, op: Op, arg: int):
         match op.addressing:
             case Addressing.ABSOLUTE:
                 self.registers.PC = arg
-        return True
 
-    def sei(self) -> bool:
+    def bit(self, op: Op, arg: int):
+        value = self.resolve_arg(op, arg)
+
+        # M7 -> N, M6 -> V
+        nv = value & 0b11000000
+        self.registers.unset_p(CPU_STATUS_NEGATIVE)
+        self.registers.unset_p(CPU_STATUS_OVERFLOW)
+        p = self.registers.P | nv
+        self.registers.P = p
+
+        # A AND M -> Z
+        result = self.registers.A & value
+        if result == 0:
+            self.registers.set_p(CPU_STATUS_ZERO)
+        else:
+            self.registers.unset_p(CPU_STATUS_ZERO)
+
+    def sei(self):
         self.registers.set_p(CPU_STATUS_INTERRUPT)
-        return False
 
-    def sta(self, op: Op, arg: int) -> bool:
+    def sta(self, op: Op, arg: int):
         match op.addressing:
             case Addressing.ABSOLUTE:
                 self.memory.write_byte(arg, self.registers.A)
-        return False
-
-    def lda(self, op: Op, arg: int) -> bool:
-        match op.addressing:
-            case Addressing.IMMEDIATE:
-                self.registers.A = arg
             case _:
                 raise ValueError(f"unsupported addressing mode: {op.addressing.name}")
-        return False
+
+    def lda(self, op: Op, arg: int) -> bool:
+        value = self.resolve_arg(op, arg)
+        self.registers.A = value
