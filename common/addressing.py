@@ -22,6 +22,6 @@ def argument_size(addressing: Addressing) -> int:
         return 0
     if addressing in [Addressing.IMMEDIATE, Addressing.RELATIVE, Addressing.ZERO, Addressing.INDIRECT_INDEXED]:
         return 1
-    if addressing in [Addressing.ABSOLUTE]:
+    if addressing in [Addressing.ABSOLUTE, Addressing.ABSOLUTE_X]:
         return 2
     raise ValueError(f"unsupported addressing mode: {addressing.name}")

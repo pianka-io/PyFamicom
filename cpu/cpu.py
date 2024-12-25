@@ -57,17 +57,22 @@ class CPU:
     def handle_instruction(self, op: Op, arg: int):
         match op.mnemonic:
             case "bpl": self.bpr(op, arg)
+            case "clc": self.clc(op, arg)
             case "jsr": self.jsr(op, arg)
+            case "and": self.and_(op, arg)
             case "bit": self.bit(op, arg)
             case "pha": self.pha(op, arg)
             case "jmp": self.jmp(op, arg)
             case "rts": self.rts(op, arg)
+            case "pla": self.pla(op, arg)
             case "sei": self.sei(op, arg)
             case "iny": self.iny(op, arg)
             case "dex": self.dex(op, arg)
             case "dey": self.dey(op, arg)
             case "txa": self.txa(op, arg)
             case "tya": self.txa(op, arg)
+            case "tax": self.tax(op, arg)
+            case "tay": self.tay(op, arg)
             case "sta": self.sta(op, arg)
             case "stx": self.stx(op, arg)
             case "ldx": self.ldx(op, arg)
@@ -86,6 +91,9 @@ class CPU:
         match op.addressing:
             case Addressing.ABSOLUTE:
                 return self.memory.read_byte(arg)
+            case Addressing.ABSOLUTE_X:
+                address = self.registers.X + arg
+                return self.memory.read_byte(address)
             case Addressing.IMMEDIATE:
                 return arg
             case Addressing.ZERO:
@@ -105,6 +113,9 @@ class CPU:
         if not self.registers.is_p(CPU_STATUS.NEGATIVE):
             self.registers.PC = value
 
+    def clc(self, op: Op, arg: int):
+        self.registers.clear_p(CPU_STATUS.CARRY)
+
     def jsr(self, op: Op, arg: int):
         match op.addressing:
             case Addressing.ABSOLUTE:
@@ -112,6 +123,11 @@ class CPU:
                 self.stack.push(value[0])
                 self.stack.push(value[1])
                 self.registers.PC = arg
+
+    def and_(self, op: Op, arg: int):
+        a = self.registers.A
+        value = a & arg
+        self.registers.A = value
 
     def bit(self, op: Op, arg: int):
         value = self.resolve_arg(op, arg)
@@ -145,6 +161,10 @@ class CPU:
         high = self.stack.pull()
         self.registers.PC = int.from_bytes([high, low], byteorder='little')
 
+    def pla(self, op: Op, arg: int):
+        value = self.stack.pull()
+        self.registers.A = value
+
     def sei(self, op: Op, arg: int):
         self.registers.set_p(CPU_STATUS.INTERRUPT)
 
@@ -161,7 +181,13 @@ class CPU:
         self.registers.A = self.registers.X
 
     def tya(self, op: Op, arg: int):
-        self.registers.Y = self.registers.X
+        self.registers.A = self.registers.Y
+
+    def tax(self, op: Op, arg: int):
+        self.registers.X = self.registers.A
+
+    def tay(self, op: Op, arg: int):
+        self.registers.Y = self.registers.A
 
     def sta(self, op: Op, arg: int):
         match op.addressing:
@@ -218,8 +244,7 @@ class CPU:
 
     def bne(self, op: Op, arg: int):
         if not self.registers.is_p(CPU_STATUS.ZERO):
-            value = self.registers.PC + signed_byte(arg)
-            self.registers.PC = value
+            self.registers.PC = self.registers.PC + signed_byte(arg)
 
     def inc(self, op: Op, arg: int):
         value = self.resolve_arg(op, arg) + 1
@@ -234,5 +259,4 @@ class CPU:
 
     def beq(self, op: Op, arg: int):
         if self.registers.is_p(CPU_STATUS.ZERO):
-            value = self.resolve_arg(op, arg)
-            self.registers.PC = value
+            self.registers.PC = self.registers.PC + signed_byte(arg)
