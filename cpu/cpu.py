@@ -59,13 +59,24 @@ class CPU:
             case "bpl": self.bpr(op, arg)
             case "jsr": self.jsr(op, arg)
             case "bit": self.bit(op, arg)
+            case "pha": self.pha(op, arg)
             case "jmp": self.jmp(op, arg)
             case "rts": self.rts(op, arg)
             case "sei": self.sei(op, arg)
+            case "iny": self.iny(op, arg)
+            case "dex": self.dex(op, arg)
+            case "dey": self.dey(op, arg)
+            case "txa": self.txa(op, arg)
+            case "tya": self.txa(op, arg)
             case "sta": self.sta(op, arg)
+            case "stx": self.stx(op, arg)
+            case "ldx": self.ldx(op, arg)
+            case "ldy": self.ldy(op, arg)
             case "lda": self.lda(op, arg)
             case "cmp": self.cmp(op, arg)
             case "bne": self.bne(op, arg)
+            case "inc": self.inc(op, arg)
+            case "dec": self.inc(op, arg)
             case "nop": self.nop(op, arg)
             case "beq": self.beq(op, arg)
             case _:
@@ -81,6 +92,11 @@ class CPU:
                 return arg
             case Addressing.RELATIVE:
                 return self.memory.read_byte(self.registers.PC + signed_byte(arg))
+            case Addressing.INDIRECT_INDEXED:
+                low = self.memory.read_byte(arg)
+                high = self.registers.Y
+                address = int.from_bytes([high, low], byteorder='little')
+                return self.memory.read_byte(address)
             case _:
                 raise ValueError(f"unsupported addressing mode: {op.addressing.name}")
 
@@ -114,6 +130,9 @@ class CPU:
         else:
             self.registers.clear_p(CPU_STATUS.ZERO)
 
+    def pha(self, op: Op, arg: int):
+        self.stack.push(self.registers.A)
+
     def jmp(self, op: Op, arg: int):
         match op.addressing:
             case Addressing.ABSOLUTE:
@@ -129,6 +148,21 @@ class CPU:
     def sei(self, op: Op, arg: int):
         self.registers.set_p(CPU_STATUS.INTERRUPT)
 
+    def iny(self, op: Op, arg: int):
+        self.registers.Y += 1
+
+    def dex(self, op: Op, arg: int):
+        self.registers.X -= 1
+
+    def dey(self, op: Op, arg: int):
+        self.registers.Y -= 1
+
+    def txa(self, op: Op, arg: int):
+        self.registers.A = self.registers.X
+
+    def tya(self, op: Op, arg: int):
+        self.registers.Y = self.registers.X
+
     def sta(self, op: Op, arg: int):
         match op.addressing:
             case Addressing.ABSOLUTE:
@@ -137,6 +171,23 @@ class CPU:
                 self.memory.write_byte(arg, self.registers.A)
             case _:
                 raise ValueError(f"unsupported addressing mode: {op.addressing.name}")
+
+    def stx(self, op: Op, arg: int):
+        match op.addressing:
+            case Addressing.ABSOLUTE:
+                self.memory.write_byte(arg, self.registers.X)
+            case Addressing.ZERO:
+                self.memory.write_byte(arg, self.registers.X)
+            case _:
+                raise ValueError(f"unsupported addressing mode: {op.addressing.name}")
+
+    def ldx(self, op: Op, arg: int):
+        value = self.resolve_arg(op, arg)
+        self.registers.X = value
+
+    def ldy(self, op: Op, arg: int):
+        value = self.resolve_arg(op, arg)
+        self.registers.Y = value
 
     def lda(self, op: Op, arg: int):
         value = self.resolve_arg(op, arg)
@@ -167,8 +218,16 @@ class CPU:
 
     def bne(self, op: Op, arg: int):
         if not self.registers.is_p(CPU_STATUS.ZERO):
-            value = self.resolve_arg(op, arg)
+            value = self.registers.PC + signed_byte(arg)
             self.registers.PC = value
+
+    def inc(self, op: Op, arg: int):
+        value = self.resolve_arg(op, arg) + 1
+        self.memory.write_byte(arg, value)
+
+    def dec(self, op: Op, arg: int):
+        value = self.resolve_arg(op, arg) - 1
+        self.memory.write_byte(arg, value)
 
     def nop(self, op: Op, arg: int):
         ...

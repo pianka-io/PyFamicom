@@ -20,7 +20,7 @@ class Addressing(Enum):
 def argument_size(addressing: Addressing) -> int:
     if addressing == Addressing.IMPLICIT:
         return 0
-    if addressing in [Addressing.IMMEDIATE, Addressing.RELATIVE, Addressing.ZERO]:
+    if addressing in [Addressing.IMMEDIATE, Addressing.RELATIVE, Addressing.ZERO, Addressing.INDIRECT_INDEXED]:
         return 1
     if addressing in [Addressing.ABSOLUTE]:
         return 2
