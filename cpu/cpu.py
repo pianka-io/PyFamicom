@@ -7,6 +7,7 @@ from common.utilities import signed_byte
 from cpu.memory import Memory
 from cpu.op import ops_by_code, Op
 from cpu.registers import Registers
+from cpu.stack import Stack
 from ppu.registers import Registers as PpuRegisters
 
 
@@ -14,8 +15,11 @@ class CPU:
     def __init__(self, ppu_registers: PpuRegisters, prg_rom: bytes):
         self.running = False
         self.ppu_registers = ppu_registers
+
         self.registers = Registers()
         self.memory = Memory(ppu_registers, prg_rom)
+        self.stack = Stack(self.registers, self.memory)
+
         self.entry = self.memory.read_word(RESET_VECTOR)
 
     def start(self):
@@ -38,7 +42,8 @@ class CPU:
 
     def print_instruction(self, op: Op, arg: int):
         rom_address = self.memory.translate_cpu_address_to_rom(self.registers.PC)
-        print(f"[${self.registers.PC:x}:${rom_address:x}] {op.mnemonic} ${arg:x}")
+        assembler = op.assembler(arg)
+        print(f"[${self.registers.PC:x}:${rom_address:x}] {assembler}")
 
     def read_arg(self, op: Op) -> int:
         begin = self.registers.PC + 1
@@ -53,18 +58,13 @@ class CPU:
 
     def handle_instruction(self, op: Op, arg: int):
         match op.mnemonic:
-            case "bpl":
-                self.bpr(op, arg)
-            case "jsr":
-                self.jsr(op, arg)
-            case "bit":
-                self.bit(op, arg)
-            case "sei":
-                self.sei()
-            case "sta":
-                self.sta(op, arg)
-            case "lda":
-                self.lda(op, arg)
+            case "bpl": self.bpr(op, arg)
+            case "jsr": self.jsr(op, arg)
+            case "bit": self.bit(op, arg)
+            case "rts": self.rts(op, arg)
+            case "sei": self.sei(op, arg)
+            case "sta": self.sta(op, arg)
+            case "lda": self.lda(op, arg)
             case _:
                 raise ValueError(f"unsupported instruction: {op.mnemonic}")
 
@@ -73,6 +73,8 @@ class CPU:
             case Addressing.ABSOLUTE:
                 return self.memory.read_byte(arg)
             case Addressing.IMMEDIATE:
+                return arg
+            case Addressing.ZERO:
                 return arg
             case Addressing.RELATIVE:
                 return self.registers.PC + signed_byte(arg)
@@ -87,6 +89,9 @@ class CPU:
     def jsr(self, op: Op, arg: int):
         match op.addressing:
             case Addressing.ABSOLUTE:
+                value = self.registers.PC.to_bytes(length=2, byteorder="little")
+                self.stack.push(value[0])
+                self.stack.push(value[1])
                 self.registers.PC = arg
 
     def bit(self, op: Op, arg: int):
@@ -106,12 +111,19 @@ class CPU:
         else:
             self.registers.clear_p(CPU_STATUS_ZERO)
 
-    def sei(self):
+    def rts(self, op: Op, arg: int):
+        low = self.stack.pull()
+        high = self.stack.pull()
+        self.registers.PC = int.from_bytes([high, low], byteorder='little')
+
+    def sei(self, op: Op, arg: int):
         self.registers.set_p(CPU_STATUS_INTERRUPT)
 
     def sta(self, op: Op, arg: int):
         match op.addressing:
             case Addressing.ABSOLUTE:
+                self.memory.write_byte(arg, self.registers.A)
+            case Addressing.ZERO:
                 self.memory.write_byte(arg, self.registers.A)
             case _:
                 raise ValueError(f"unsupported addressing mode: {op.addressing.name}")
