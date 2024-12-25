@@ -56,7 +56,7 @@ class CPU:
 
     def handle_instruction(self, op: Op, arg: int):
         match op.mnemonic:
-            case "bpl": self.bpr(op, arg)
+            case "bpl": self.bpl(op, arg)
             case "clc": self.clc(op, arg)
             case "jsr": self.jsr(op, arg)
             case "and": self.and_(op, arg)
@@ -102,13 +102,31 @@ class CPU:
                 return self.memory.read_byte(self.registers.PC + signed_byte(arg))
             case Addressing.INDIRECT_INDEXED:
                 low = self.memory.read_byte(arg)
-                high = self.registers.Y
+                high = self.registers.Y & 0xFF
                 address = int.from_bytes([high, low], byteorder='little')
                 return self.memory.read_byte(address)
             case _:
                 raise ValueError(f"unsupported addressing mode: {op.addressing.name}")
 
-    def bpr(self, op: Op, arg: int):
+    def set_n_by(self, value: int):
+        if value < 0:
+            self.registers.set_p(CPU_STATUS.NEGATIVE)
+        else:
+            self.registers.clear_p(CPU_STATUS.NEGATIVE)
+
+    def set_z_by(self, value: int):
+        if value == 0:
+            self.registers.set_p(CPU_STATUS.ZERO)
+        else:
+            self.registers.clear_p(CPU_STATUS.ZERO)
+
+    def set_c_by(self, value: int):
+        if value < -128 or value > 127:
+            self.registers.set_p(CPU_STATUS.CARRY)
+        else:
+            self.registers.clear_p(CPU_STATUS.CARRY)
+
+    def bpl(self, op: Op, arg: int):
         value = self.resolve_arg(op, arg)
         if not self.registers.is_p(CPU_STATUS.NEGATIVE):
             self.registers.PC = value
@@ -128,6 +146,9 @@ class CPU:
         a = self.registers.A
         value = a & arg
         self.registers.A = value
+
+        self.set_n_by(value)
+        self.set_z_by(value)
 
     def bit(self, op: Op, arg: int):
         value = self.resolve_arg(op, arg)
@@ -164,30 +185,46 @@ class CPU:
     def pla(self, op: Op, arg: int):
         value = self.stack.pull()
         self.registers.A = value
+        self.set_n_by(value)
+        self.set_z_by(value)
 
     def sei(self, op: Op, arg: int):
         self.registers.set_p(CPU_STATUS.INTERRUPT)
 
     def iny(self, op: Op, arg: int):
         self.registers.Y += 1
+        self.set_n_by(self.registers.Y)
+        self.set_z_by(self.registers.Y)
 
     def dex(self, op: Op, arg: int):
         self.registers.X -= 1
+        self.set_n_by(self.registers.X)
+        self.set_z_by(self.registers.X)
 
     def dey(self, op: Op, arg: int):
         self.registers.Y -= 1
+        self.set_n_by(self.registers.Y)
+        self.set_z_by(self.registers.Y)
 
     def txa(self, op: Op, arg: int):
         self.registers.A = self.registers.X
+        self.set_n_by(self.registers.A)
+        self.set_z_by(self.registers.A)
 
     def tya(self, op: Op, arg: int):
         self.registers.A = self.registers.Y
+        self.set_n_by(self.registers.A)
+        self.set_z_by(self.registers.A)
 
     def tax(self, op: Op, arg: int):
         self.registers.X = self.registers.A
+        self.set_n_by(self.registers.X)
+        self.set_z_by(self.registers.X)
 
     def tay(self, op: Op, arg: int):
         self.registers.Y = self.registers.A
+        self.set_n_by(self.registers.Y)
+        self.set_z_by(self.registers.Y)
 
     def sta(self, op: Op, arg: int):
         match op.addressing:
@@ -210,37 +247,29 @@ class CPU:
     def ldx(self, op: Op, arg: int):
         value = self.resolve_arg(op, arg)
         self.registers.X = value
+        self.set_n_by(self.registers.X)
+        self.set_z_by(self.registers.X)
 
     def ldy(self, op: Op, arg: int):
         value = self.resolve_arg(op, arg)
         self.registers.Y = value
+        self.set_n_by(self.registers.Y)
+        self.set_z_by(self.registers.Y)
 
     def lda(self, op: Op, arg: int):
         value = self.resolve_arg(op, arg)
         self.registers.A = value
+        self.set_n_by(self.registers.A)
+        self.set_z_by(self.registers.A)
 
     def cmp(self, op: Op, arg: int):
         value = self.resolve_arg(op, arg)
         result = self.registers.A - value
         result = signed_byte(result)
 
-        # N
-        if result < 0:
-            self.registers.set_p(CPU_STATUS.NEGATIVE)
-        else:
-            self.registers.clear_p(CPU_STATUS.NEGATIVE)
-
-        # Z
-        if result == 0:
-            self.registers.set_p(CPU_STATUS.ZERO)
-        else:
-            self.registers.clear_p(CPU_STATUS.ZERO)
-
-        # C
-        if result < -128 or result > 127:
-            self.registers.set_p(CPU_STATUS.CARRY)
-        else:
-            self.registers.clear_p(CPU_STATUS.CARRY)
+        self.set_n_by(result)
+        self.set_z_by(result)
+        self.set_c_by(result)
 
     def bne(self, op: Op, arg: int):
         if not self.registers.is_p(CPU_STATUS.ZERO):
@@ -249,10 +278,14 @@ class CPU:
     def inc(self, op: Op, arg: int):
         value = self.resolve_arg(op, arg) + 1
         self.memory.write_byte(arg, value)
+        self.set_n_by(value)
+        self.set_z_by(value)
 
     def dec(self, op: Op, arg: int):
         value = self.resolve_arg(op, arg) - 1
         self.memory.write_byte(arg, value)
+        self.set_n_by(value)
+        self.set_z_by(value)
 
     def nop(self, op: Op, arg: int):
         ...
