@@ -1,3 +1,5 @@
+from time import sleep
+
 from common.addressing import argument_size, Addressing
 from common.constants import RESET_VECTOR, CPU_STATUS_INTERRUPT, CPU_STATUS_OVERFLOW, CPU_STATUS_NEGATIVE, \
     CPU_STATUS_ZERO
@@ -10,14 +12,17 @@ from ppu.registers import Registers as PpuRegisters
 
 class CPU:
     def __init__(self, ppu_registers: PpuRegisters, prg_rom: bytes):
+        self.running = False
         self.ppu_registers = ppu_registers
         self.registers = Registers()
         self.memory = Memory(ppu_registers, prg_rom)
         self.entry = self.memory.read_word(RESET_VECTOR)
 
     def start(self):
+        self.running = True
         self.registers.PC = self.entry
-        while True:
+        while self.running:
+            sleep(0.1)
             opcode = self.memory.read_byte(self.registers.PC)
             if opcode not in ops_by_code:
                 print(f"unsupported opcode: ${opcode:x}")
@@ -27,6 +32,9 @@ class CPU:
             self.registers.PC += op.size
             self.print_instruction(op, arg)
             self.handle_instruction(op, arg)
+
+    def stop(self):
+        self.running = False
 
     def print_instruction(self, op: Op, arg: int):
         rom_address = self.memory.translate_cpu_address_to_rom(self.registers.PC)
