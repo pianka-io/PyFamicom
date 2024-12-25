@@ -1,4 +1,4 @@
-from common.constants import PPU_REGISTER
+from common.constants import PPU_REGISTER, PPUSTATUS_VBLANK
 
 
 class Registers:
@@ -55,3 +55,9 @@ class Registers:
             case PPU_REGISTER.OAMDMA: self.OAMDMA = value
             case _:
                 raise ValueError(f"unknown address ${address:x}")
+
+    def set_vblank(self):
+        self.PPUSTATUS |= PPUSTATUS_VBLANK
+
+    def clear_vblank(self):
+        self.PPUSTATUS &= ~PPUSTATUS_VBLANK

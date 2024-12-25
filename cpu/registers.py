@@ -14,5 +14,5 @@ class Registers:
     def set_p(self, flag: int):
         self.P |= flag
 
-    def unset_p(self, flag: int):
+    def clear_p(self, flag: int):
         self.P &= ~flag

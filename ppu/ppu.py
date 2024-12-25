@@ -10,6 +10,7 @@ class PPU:
 
     def start(self):
         self.running = True
+        self.registers.set_vblank()
         while self.running:
             sleep(100)
 

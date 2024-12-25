@@ -94,8 +94,8 @@ class CPU:
 
         # M7 -> N, M6 -> V
         nv = value & 0b11000000
-        self.registers.unset_p(CPU_STATUS_NEGATIVE)
-        self.registers.unset_p(CPU_STATUS_OVERFLOW)
+        self.registers.clear_p(CPU_STATUS_NEGATIVE)
+        self.registers.clear_p(CPU_STATUS_OVERFLOW)
         p = self.registers.P | nv
         self.registers.P = p
 
@@ -104,7 +104,7 @@ class CPU:
         if result == 0:
             self.registers.set_p(CPU_STATUS_ZERO)
         else:
-            self.registers.unset_p(CPU_STATUS_ZERO)
+            self.registers.clear_p(CPU_STATUS_ZERO)
 
     def sei(self):
         self.registers.set_p(CPU_STATUS_INTERRUPT)
