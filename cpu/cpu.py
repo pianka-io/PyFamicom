@@ -5,12 +5,14 @@ from common.utilities import signed_byte
 from cpu.memory import Memory
 from cpu.op import ops_by_code, Op
 from cpu.registers import Registers
+from ppu.registers import Registers as PpuRegisters
 
 
 class CPU:
-    def __init__(self, prg_rom: bytes):
+    def __init__(self, ppu_registers: PpuRegisters, prg_rom: bytes):
+        self.ppu_registers = ppu_registers
         self.registers = Registers()
-        self.memory = Memory(prg_rom)
+        self.memory = Memory(ppu_registers, prg_rom)
         self.entry = self.memory.read_word(RESET_VECTOR)
 
     def start(self):
