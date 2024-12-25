@@ -11,7 +11,7 @@ class Stack:
         self.registers.SP = STACK_OFFSET
 
     def push(self, value: int):
-        print(f"push {value:x} @ {self.registers.SP:x}")
+        # print(f"push {value:x} @ {self.registers.SP:x}")
         sp = self.registers.SP
         self.memory.write_byte(sp, value & 0xFF)
         self.registers.SP -= 1
@@ -20,5 +20,5 @@ class Stack:
         sp = self.registers.SP + 1
         self.registers.SP = sp
         value = self.memory.read_byte(sp)
-        print(f"pull {value:x} @ {self.registers.SP:x}")
+        # print(f"pull {value:x} @ {self.registers.SP:x}")
         return value

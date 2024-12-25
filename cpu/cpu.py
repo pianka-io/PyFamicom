@@ -1,8 +1,7 @@
 from time import sleep
 
 from common.addressing import argument_size, Addressing
-from common.constants import RESET_VECTOR, CPU_STATUS_INTERRUPT, CPU_STATUS_OVERFLOW, CPU_STATUS_NEGATIVE, \
-    CPU_STATUS_ZERO
+from common.constants import RESET_VECTOR, CPU_STATUS
 from common.utilities import signed_byte
 from cpu.memory import Memory
 from cpu.op import ops_by_code, Op
@@ -26,15 +25,14 @@ class CPU:
         self.running = True
         self.registers.PC = self.entry
         while self.running:
-            sleep(0.1)
             opcode = self.memory.read_byte(self.registers.PC)
             if opcode not in ops_by_code:
                 print(f"unsupported opcode: ${opcode:x}")
                 break
             op = ops_by_code[opcode]
             arg = self.read_arg(op)
-            self.registers.PC += op.size
             self.print_instruction(op, arg)
+            self.registers.PC += op.size
             self.handle_instruction(op, arg)
 
     def stop(self):
@@ -61,10 +59,15 @@ class CPU:
             case "bpl": self.bpr(op, arg)
             case "jsr": self.jsr(op, arg)
             case "bit": self.bit(op, arg)
+            case "jmp": self.jmp(op, arg)
             case "rts": self.rts(op, arg)
             case "sei": self.sei(op, arg)
             case "sta": self.sta(op, arg)
             case "lda": self.lda(op, arg)
+            case "cmp": self.cmp(op, arg)
+            case "bne": self.bne(op, arg)
+            case "nop": self.nop(op, arg)
+            case "beq": self.beq(op, arg)
             case _:
                 raise ValueError(f"unsupported instruction: {op.mnemonic}")
 
@@ -77,13 +80,13 @@ class CPU:
             case Addressing.ZERO:
                 return arg
             case Addressing.RELATIVE:
-                return self.registers.PC + signed_byte(arg)
+                return self.memory.read_byte(self.registers.PC + signed_byte(arg))
             case _:
                 raise ValueError(f"unsupported addressing mode: {op.addressing.name}")
 
     def bpr(self, op: Op, arg: int):
         value = self.resolve_arg(op, arg)
-        if not self.registers.is_p(CPU_STATUS_NEGATIVE):
+        if not self.registers.is_p(CPU_STATUS.NEGATIVE):
             self.registers.PC = value
 
     def jsr(self, op: Op, arg: int):
@@ -99,17 +102,24 @@ class CPU:
 
         # M7 -> N, M6 -> V
         nv = value & 0b11000000
-        self.registers.clear_p(CPU_STATUS_NEGATIVE)
-        self.registers.clear_p(CPU_STATUS_OVERFLOW)
+        self.registers.clear_p(CPU_STATUS.NEGATIVE)
+        self.registers.clear_p(CPU_STATUS.OVERFLOW)
         p = self.registers.P | nv
         self.registers.P = p
 
         # A AND M -> Z
         result = self.registers.A & value
         if result == 0:
-            self.registers.set_p(CPU_STATUS_ZERO)
+            self.registers.set_p(CPU_STATUS.ZERO)
         else:
-            self.registers.clear_p(CPU_STATUS_ZERO)
+            self.registers.clear_p(CPU_STATUS.ZERO)
+
+    def jmp(self, op: Op, arg: int):
+        match op.addressing:
+            case Addressing.ABSOLUTE:
+                self.registers.PC = arg
+            case _:
+                raise ValueError(f"unsupported addressing mode: {op.addressing.name}")
 
     def rts(self, op: Op, arg: int):
         low = self.stack.pull()
@@ -117,7 +127,7 @@ class CPU:
         self.registers.PC = int.from_bytes([high, low], byteorder='little')
 
     def sei(self, op: Op, arg: int):
-        self.registers.set_p(CPU_STATUS_INTERRUPT)
+        self.registers.set_p(CPU_STATUS.INTERRUPT)
 
     def sta(self, op: Op, arg: int):
         match op.addressing:
@@ -128,6 +138,42 @@ class CPU:
             case _:
                 raise ValueError(f"unsupported addressing mode: {op.addressing.name}")
 
-    def lda(self, op: Op, arg: int) -> bool:
+    def lda(self, op: Op, arg: int):
         value = self.resolve_arg(op, arg)
         self.registers.A = value
+
+    def cmp(self, op: Op, arg: int):
+        value = self.resolve_arg(op, arg)
+        result = self.registers.A - value
+        result = signed_byte(result)
+
+        # N
+        if result < 0:
+            self.registers.set_p(CPU_STATUS.NEGATIVE)
+        else:
+            self.registers.clear_p(CPU_STATUS.NEGATIVE)
+
+        # Z
+        if result == 0:
+            self.registers.set_p(CPU_STATUS.ZERO)
+        else:
+            self.registers.clear_p(CPU_STATUS.ZERO)
+
+        # C
+        if result < -128 or result > 127:
+            self.registers.set_p(CPU_STATUS.CARRY)
+        else:
+            self.registers.clear_p(CPU_STATUS.CARRY)
+
+    def bne(self, op: Op, arg: int):
+        if not self.registers.is_p(CPU_STATUS.ZERO):
+            value = self.resolve_arg(op, arg)
+            self.registers.PC = value
+
+    def nop(self, op: Op, arg: int):
+        ...
+
+    def beq(self, op: Op, arg: int):
+        if self.registers.is_p(CPU_STATUS.ZERO):
+            value = self.resolve_arg(op, arg)
+            self.registers.PC = value

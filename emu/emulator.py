@@ -18,8 +18,8 @@ class Emulator:
         cpu_thread = Thread(target=self.cpu.start)
         ppu_thread = Thread(target=self.ppu.start)
 
-        cpu_thread.start()
         ppu_thread.start()
+        cpu_thread.start()
 
         try:
             while self.running:
