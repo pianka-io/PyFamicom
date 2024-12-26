@@ -1,23 +1,27 @@
-import time
+from time import sleep
 
 from common.addressing import argument_size, Addressing
-from common.constants import RESET_VECTOR, CPU_STATUS, CPU_CYCLES_PER_SECOND
+from common.constants import RESET_VECTOR, CPU_STATUS
+from common.interrupt import Interrupt
 from common.utilities import signed_byte
 from cpu.memory import Memory
-from cpu.op import ops_by_code, Op
+from cpu.opcodes import ops_by_code, Op
 from cpu.registers import Registers
 from cpu.stack import Stack
-from ppu.registers import Registers as PpuRegisters
+from ppu.ppu import PPU
 
 
 class CPU:
-    def __init__(self, ppu_registers: PpuRegisters, prg_rom: bytes):
+    def __init__(self, ppu: PPU, nmi: Interrupt, prg_rom: bytes):
         self.running = False
         self.clock = 0
-        self.ppu_registers = ppu_registers
+        self.ppu = ppu
+        self.nmi = nmi
+        self.nmi_set = False
+        self.nmi.register(self.handle_nmi)
 
         self.registers = Registers()
-        self.memory = Memory(ppu_registers, prg_rom)
+        self.memory = Memory(self.ppu, prg_rom)
         self.stack = Stack(self.registers, self.memory)
 
         self.entry = self.memory.read_word(RESET_VECTOR)
@@ -26,6 +30,16 @@ class CPU:
         self.running = True
         self.registers.PC = self.entry
         while self.running:
+            # ppu nmi interrupt
+            if self.nmi_set:
+                self.nmi_set = False
+                self.stack.push(self.registers.PC >> 8)
+                self.stack.push(self.registers.PC & 0xFF)
+                self.stack.push(self.registers.P)
+                self.registers.PC = self.memory.read_byte(0xFFFA) | (self.memory.read_byte(0xFFFB) << 8)
+                continue
+
+            # regular operation
             opcode = self.memory.read_byte(self.registers.PC)
             if opcode not in ops_by_code:
                 print(f"unsupported opcode: ${opcode:x}")
@@ -40,6 +54,9 @@ class CPU:
 
     def stop(self):
         self.running = False
+
+    def handle_nmi(self):
+        self.nmi_set = True
 
     def print_instruction(self, op: Op, arg: int):
         rom_address = self.memory.translate_cpu_address_to_rom(self.registers.PC)
@@ -59,34 +76,62 @@ class CPU:
 
     def handle_instruction(self, op: Op, arg: int):
         match op.mnemonic:
-            case "bpl": self.bpl(op, arg)
-            case "clc": self.clc(op, arg)
-            case "jsr": self.jsr(op, arg)
-            case "and": self.and_(op, arg)
-            case "bit": self.bit(op, arg)
-            case "pha": self.pha(op, arg)
-            case "jmp": self.jmp(op, arg)
-            case "rts": self.rts(op, arg)
-            case "pla": self.pla(op, arg)
-            case "sei": self.sei(op, arg)
-            case "iny": self.iny(op, arg)
-            case "dex": self.dex(op, arg)
-            case "dey": self.dey(op, arg)
-            case "txa": self.txa(op, arg)
-            case "tya": self.txa(op, arg)
-            case "tax": self.tax(op, arg)
-            case "tay": self.tay(op, arg)
-            case "sta": self.sta(op, arg)
-            case "stx": self.stx(op, arg)
-            case "ldx": self.ldx(op, arg)
-            case "ldy": self.ldy(op, arg)
-            case "lda": self.lda(op, arg)
-            case "cmp": self.cmp(op, arg)
-            case "bne": self.bne(op, arg)
-            case "inc": self.inc(op, arg)
-            case "dec": self.inc(op, arg)
-            case "nop": self.nop(op, arg)
-            case "beq": self.beq(op, arg)
+            case "bpl":
+                self.bpl(op, arg)
+            case "clc":
+                self.clc(op, arg)
+            case "jsr":
+                self.jsr(op, arg)
+            case "and":
+                self.and_(op, arg)
+            case "bit":
+                self.bit(op, arg)
+            case "pha":
+                self.pha(op, arg)
+            case "jmp":
+                self.jmp(op, arg)
+            case "rts":
+                self.rts(op, arg)
+            case "pla":
+                self.pla(op, arg)
+            case "sei":
+                self.sei(op, arg)
+            case "iny":
+                self.iny(op, arg)
+            case "dex":
+                self.dex(op, arg)
+            case "dey":
+                self.dey(op, arg)
+            case "txa":
+                self.txa(op, arg)
+            case "tya":
+                self.txa(op, arg)
+            case "tax":
+                self.tax(op, arg)
+            case "tay":
+                self.tay(op, arg)
+            case "sta":
+                self.sta(op, arg)
+            case "stx":
+                self.stx(op, arg)
+            case "ldx":
+                self.ldx(op, arg)
+            case "ldy":
+                self.ldy(op, arg)
+            case "lda":
+                self.lda(op, arg)
+            case "cmp":
+                self.cmp(op, arg)
+            case "bne":
+                self.bne(op, arg)
+            case "inc":
+                self.inc(op, arg)
+            case "dec":
+                self.dec(op, arg)
+            case "nop":
+                self.nop(op, arg)
+            case "beq":
+                self.beq(op, arg)
             case _:
                 raise ValueError(f"unsupported instruction: {op.mnemonic}")
 
@@ -100,7 +145,7 @@ class CPU:
             case Addressing.IMMEDIATE:
                 return arg
             case Addressing.ZERO:
-                return arg
+                return self.memory.read_byte(arg)
             case Addressing.RELATIVE:
                 return self.memory.read_byte(self.registers.PC + signed_byte(arg))
             case Addressing.INDIRECT_INDEXED:
@@ -234,6 +279,7 @@ class CPU:
             case Addressing.ABSOLUTE:
                 self.memory.write_byte(arg, self.registers.A)
             case Addressing.ZERO:
+                print(f"sta ${self.registers.A:x} @ ${arg:x}")
                 self.memory.write_byte(arg, self.registers.A)
             case _:
                 raise ValueError(f"unsupported addressing mode: {op.addressing.name}")
@@ -262,11 +308,13 @@ class CPU:
     def lda(self, op: Op, arg: int):
         value = self.resolve_arg(op, arg)
         self.registers.A = value
+        print(f"lda {self.registers.A:x} @ ${arg:x}")
         self.set_n_by(self.registers.A)
         self.set_z_by(self.registers.A)
 
     def cmp(self, op: Op, arg: int):
         value = self.resolve_arg(op, arg)
+        print(f"cmp ${self.registers.A:x} - ${value:x}")
         result = self.registers.A - value
         result = signed_byte(result)
 
@@ -280,12 +328,14 @@ class CPU:
 
     def inc(self, op: Op, arg: int):
         value = self.resolve_arg(op, arg) + 1
+        print(value)
         self.memory.write_byte(arg, value)
         self.set_n_by(value)
         self.set_z_by(value)
 
     def dec(self, op: Op, arg: int):
         value = self.resolve_arg(op, arg) - 1
+        print(value)
         self.memory.write_byte(arg, value)
         self.set_n_by(value)
         self.set_z_by(value)

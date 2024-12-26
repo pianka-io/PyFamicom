@@ -19,6 +19,7 @@ class Registers:
         self.ppuaddr_write = 0
 
     def read_byte(self, address: int) -> int:
+        print(f"reading from ${address:x}")
         match address:
             case PPU_REGISTER.PPUCTRL: return self.PPUCTRL
             case PPU_REGISTER.PPUMASK: return self.PPUMASK
@@ -39,6 +40,9 @@ class Registers:
                 raise ValueError(f"unknown address ${address:x}")
 
     def write_byte(self, address: int, value: int):
+        print(f"writing ${value:x} to ${address:x}")
+        # if value != 0:
+        #     print(f"writing ${value:x} to ${address:x}")
         match address:
             case PPU_REGISTER.PPUCTRL: self.PPUCTRL = value
             case PPU_REGISTER.PPUMASK: self.PPUMASK = value
