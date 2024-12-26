@@ -1,7 +1,7 @@
-from time import sleep
+import time
 
 from common.addressing import argument_size, Addressing
-from common.constants import RESET_VECTOR, CPU_STATUS
+from common.constants import RESET_VECTOR, CPU_STATUS, CPU_CYCLES_PER_SECOND
 from common.utilities import signed_byte
 from cpu.memory import Memory
 from cpu.op import ops_by_code, Op
@@ -13,6 +13,7 @@ from ppu.registers import Registers as PpuRegisters
 class CPU:
     def __init__(self, ppu_registers: PpuRegisters, prg_rom: bytes):
         self.running = False
+        self.clock = 0
         self.ppu_registers = ppu_registers
 
         self.registers = Registers()
@@ -31,9 +32,11 @@ class CPU:
                 break
             op = ops_by_code[opcode]
             arg = self.read_arg(op)
+
             self.print_instruction(op, arg)
             self.registers.PC += op.size
             self.handle_instruction(op, arg)
+            self.clock += op.cycles
 
     def stop(self):
         self.running = False
