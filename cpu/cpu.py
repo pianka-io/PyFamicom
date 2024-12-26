@@ -14,7 +14,7 @@ from ppu.ppu import PPU
 class CPU:
     def __init__(self, ppu: PPU, nmi: Interrupt, prg_rom: bytes):
         self.running = False
-        self.clock = 0
+        self.cycles = 0
         self.ppu = ppu
         self.nmi = nmi
 
@@ -48,7 +48,7 @@ class CPU:
             self.print_instruction(op, arg)
             self.registers.PC += op.size
             self.handle_instruction(op, arg)
-            self.clock += op.cycles
+            self.cycles += op.cycles
 
     def stop(self):
         self.running = False
