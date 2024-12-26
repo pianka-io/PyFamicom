@@ -26,7 +26,7 @@ class Memory:
             self.ppu.registers.write_byte(address, value)
             return
         translated = self.translate_address(address)
-        self.memory[translated] = value
+        self.memory[translated] = value & 0xFF
 
     def translate_address(self, address: int) -> int:
         if self.mirrored and address > PRG_OFFSET + PRG_BANK_SIZE:

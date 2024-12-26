@@ -34,7 +34,7 @@ class CPU:
             if self.nmi_set:
                 self.nmi_set = False
                 self.stack.push(self.registers.PC >> 8)
-                self.stack.push(self.registers.PC & 0xFF)
+                self.stack.push(self.registers.PC)
                 self.stack.push(self.registers.P)
                 self.registers.PC = self.memory.read_byte(0xFFFA) | (self.memory.read_byte(0xFFFB) << 8)
                 continue
@@ -88,12 +88,16 @@ class CPU:
                 self.bit(op, arg)
             case "pha":
                 self.pha(op, arg)
+            case "rti":
+                self.rti(op, arg)
             case "jmp":
                 self.jmp(op, arg)
             case "rts":
                 self.rts(op, arg)
             case "pla":
                 self.pla(op, arg)
+            case "adc":
+                self.adc(op, arg)
             case "sei":
                 self.sei(op, arg)
             case "iny":
@@ -114,6 +118,8 @@ class CPU:
                 self.sta(op, arg)
             case "stx":
                 self.stx(op, arg)
+            case "sty":
+                self.sty(op, arg)
             case "ldx":
                 self.ldx(op, arg)
             case "ldy":
@@ -126,6 +132,8 @@ class CPU:
                 self.bne(op, arg)
             case "inc":
                 self.inc(op, arg)
+            case "inx":
+                self.inx(op, arg)
             case "dec":
                 self.dec(op, arg)
             case "nop":
@@ -174,6 +182,12 @@ class CPU:
         else:
             self.registers.clear_p(CPU_STATUS.CARRY)
 
+    def set_v_by(self, value: int):
+        if not (value >> 8) == 0:
+            self.registers.set_p(CPU_STATUS.CARRY)
+        else:
+            self.registers.clear_p(CPU_STATUS.CARRY)
+
     def bpl(self, op: Op, arg: int):
         value = self.resolve_arg(op, arg)
         if not self.registers.is_p(CPU_STATUS.NEGATIVE):
@@ -218,6 +232,12 @@ class CPU:
     def pha(self, op: Op, arg: int):
         self.stack.push(self.registers.A)
 
+    def rti(self, op: Op, arg: int):
+        self.registers.P = self.stack.pull()
+        low = self.stack.pull()
+        high = self.stack.pull()
+        self.registers.PC = (high << 8) | low
+
     def jmp(self, op: Op, arg: int):
         match op.addressing:
             case Addressing.ABSOLUTE:
@@ -235,6 +255,16 @@ class CPU:
         self.registers.A = value
         self.set_n_by(value)
         self.set_z_by(value)
+
+    def adc(self, op: Op, arg: int):
+        value = self.resolve_arg(op, arg)
+        total = self.registers.A + value
+        self.registers.A = total & 0xFF
+
+        self.set_n_by(value)
+        self.set_z_by(value)
+        self.set_c_by(value)
+        self.set_v_by(value)
 
     def sei(self, op: Op, arg: int):
         self.registers.set_p(CPU_STATUS.INTERRUPT)
@@ -279,7 +309,6 @@ class CPU:
             case Addressing.ABSOLUTE:
                 self.memory.write_byte(arg, self.registers.A)
             case Addressing.ZERO:
-                print(f"sta ${self.registers.A:x} @ ${arg:x}")
                 self.memory.write_byte(arg, self.registers.A)
             case _:
                 raise ValueError(f"unsupported addressing mode: {op.addressing.name}")
@@ -290,6 +319,15 @@ class CPU:
                 self.memory.write_byte(arg, self.registers.X)
             case Addressing.ZERO:
                 self.memory.write_byte(arg, self.registers.X)
+            case _:
+                raise ValueError(f"unsupported addressing mode: {op.addressing.name}")
+
+    def sty(self, op: Op, arg: int):
+        match op.addressing:
+            case Addressing.ABSOLUTE:
+                self.memory.write_byte(arg, self.registers.Y)
+            case Addressing.ZERO:
+                self.memory.write_byte(arg, self.registers.Y)
             case _:
                 raise ValueError(f"unsupported addressing mode: {op.addressing.name}")
 
@@ -308,13 +346,11 @@ class CPU:
     def lda(self, op: Op, arg: int):
         value = self.resolve_arg(op, arg)
         self.registers.A = value
-        print(f"lda {self.registers.A:x} @ ${arg:x}")
         self.set_n_by(self.registers.A)
         self.set_z_by(self.registers.A)
 
     def cmp(self, op: Op, arg: int):
         value = self.resolve_arg(op, arg)
-        print(f"cmp ${self.registers.A:x} - ${value:x}")
         result = self.registers.A - value
         result = signed_byte(result)
 
@@ -328,14 +364,17 @@ class CPU:
 
     def inc(self, op: Op, arg: int):
         value = self.resolve_arg(op, arg) + 1
-        print(value)
         self.memory.write_byte(arg, value)
         self.set_n_by(value)
         self.set_z_by(value)
 
+    def inx(self, op: Op, arg: int):
+        self.registers.X += 1
+        self.set_n_by(self.registers.X)
+        self.set_z_by(self.registers.X)
+
     def dec(self, op: Op, arg: int):
         value = self.resolve_arg(op, arg) - 1
-        print(value)
         self.memory.write_byte(arg, value)
         self.set_n_by(value)
         self.set_z_by(value)
