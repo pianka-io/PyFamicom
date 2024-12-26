@@ -1,7 +1,7 @@
 from time import sleep
 
 from common.addressing import argument_size, Addressing
-from common.constants import RESET_VECTOR, CPU_STATUS
+from common.constants import RESET_VECTOR, CPU_STATUS, NMI_VECTOR
 from common.interrupt import Interrupt
 from common.utilities import signed_byte
 from cpu.memory import Memory
@@ -17,8 +17,6 @@ class CPU:
         self.clock = 0
         self.ppu = ppu
         self.nmi = nmi
-        self.nmi_set = False
-        self.nmi.register(self.handle_nmi)
 
         self.registers = Registers()
         self.memory = Memory(self.ppu, prg_rom)
@@ -31,12 +29,12 @@ class CPU:
         self.registers.PC = self.entry
         while self.running:
             # ppu nmi interrupt
-            if self.nmi_set:
-                self.nmi_set = False
+            if self.nmi.active():
+                self.nmi.clear()
                 self.stack.push(self.registers.PC >> 8)
                 self.stack.push(self.registers.PC)
                 self.stack.push(self.registers.P)
-                self.registers.PC = self.memory.read_byte(0xFFFA) | (self.memory.read_byte(0xFFFB) << 8)
+                self.registers.PC = self.memory.read_byte(NMI_VECTOR) | (self.memory.read_byte(NMI_VECTOR + 1) << 8)
                 continue
 
             # regular operation
@@ -54,9 +52,6 @@ class CPU:
 
     def stop(self):
         self.running = False
-
-    def handle_nmi(self):
-        self.nmi_set = True
 
     def print_instruction(self, op: Op, arg: int):
         rom_address = self.memory.translate_cpu_address_to_rom(self.registers.PC)
