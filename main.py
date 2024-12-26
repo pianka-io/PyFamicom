@@ -1,9 +1,9 @@
 from emu.emulator import Emulator
-from ines.loader import load_rom
+from ines.rom import ROM
 
 
 def main():
-    rom = load_rom("roms/tests/1.Branch_Basics.nes")
+    rom = ROM.load("roms/tests/1.Branch_Basics.nes")
     emu = Emulator(rom)
     emu.start()
 
