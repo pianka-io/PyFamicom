@@ -27,15 +27,15 @@ class PPU:
 
     def render(self):
         self.counter += 1
-        if self.counter >= 60:
-            self.counter = 0
-            print("start")
-            print(self.registers.name_table)
-            for y in range(30):
-                for x in range(32):
-                    base = self.registers.name_table
-                    offset = y * 32 + x
-                    address = base + offset
-                    value = self.memory.read_byte(address)
-                    print(f"{value:4x}", end="")
-                print()
+        # if self.counter >= 60:
+        #     self.counter = 0
+        #     print("start")
+        #     print(self.registers.name_table)
+        #     for y in range(30):
+        #         for x in range(32):
+        #             base = self.registers.name_table
+        #             offset = y * 32 + x
+        #             address = base + offset
+        #             value = self.memory.read_byte(address)
+        #             print(f"{value:4x}", end="")
+        #         print()

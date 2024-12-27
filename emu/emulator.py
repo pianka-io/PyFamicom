@@ -5,6 +5,7 @@ from cpu.cpu import CPU
 from common.interrupt import Interrupt
 from ines.rom import ROM
 from ppu.ppu import PPU
+from tv.tv import TV
 
 
 class Emulator:
@@ -12,6 +13,7 @@ class Emulator:
         self.running = False
         self.rom = rom
         self.nmi = Interrupt()
+        self.tv = TV()
         self.ppu = PPU(self.nmi)
         self.cpu = CPU(self.ppu, self.nmi, rom.prg_rom)
 
@@ -23,12 +25,10 @@ class Emulator:
         ppu_thread.start()
         cpu_thread.start()
 
-        try:
-            while self.running:
-                sleep(100)
-        finally:
-            self.cpu.stop()
-            self.ppu.stop()
+        self.tv.start()
+
+        self.cpu.stop()
+        self.ppu.stop()
 
     def stop(self):
         self.running = False
