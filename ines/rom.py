@@ -12,8 +12,8 @@ class ROM:
         self.prg_rom = prg_rom
 
     @staticmethod
-    def load(filename: str):
-        with open(filename, "rb") as file:
+    def load(path: str):
+        with open(path, "rb") as file:
             ines = file.read()
 
         # header

@@ -4,17 +4,18 @@ from time import sleep
 from cpu.cpu import CPU
 from common.interrupt import Interrupt
 from ines.rom import ROM
+from pal.palette import Palette
 from ppu.ppu import PPU
 from tv.tv import TV
 
 
 class Emulator:
-    def __init__(self, rom: ROM):
+    def __init__(self, rom: ROM, pal: Palette):
         self.running = False
         self.rom = rom
         self.nmi = Interrupt()
         self.tv = TV()
-        self.ppu = PPU(self.nmi)
+        self.ppu = PPU(self.tv, pal, self.nmi)
         self.cpu = CPU(self.ppu, self.nmi, rom.prg_rom)
 
     def start(self):
