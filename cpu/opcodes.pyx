@@ -12,29 +12,28 @@ class Op:
 
     def assembler(self, arg: int) -> str:
         arg_asm = f"${arg:x}"
-        match self.addressing:
-            case Addressing.IMPLICIT:
-                arg_asm = ""
-            case Addressing.IMMEDIATE:
-                arg_asm = f"#{arg_asm}"
-            case Addressing.ZERO_X:
-                arg_asm = f"#{arg_asm},X"
-            case Addressing.ZERO_Y:
-                arg_asm = f"#{arg_asm},Y"
-            case Addressing.RELATIVE:
-                delta = signed_byte(arg)
-                plus = "+" if delta >= 0 else ""
-                arg_asm = f"*{plus}{delta:x}"
-            case Addressing.ABSOLUTE_X:
-                arg_asm = f"{arg_asm},X"
-            case Addressing.ABSOLUTE_Y:
-                arg_asm = f"{arg_asm},Y"
-            case Addressing.INDIRECT:
-                arg_asm = f"({arg_asm})"
-            case Addressing.INDEXED_INDIRECT:
-                arg_asm = f"({arg_asm},X)"
-            case Addressing.INDIRECT_INDEXED:
-                arg_asm = f"({arg_asm}),Y"
+        if self.addressing == Addressing.IMPLICIT:
+            arg_asm = ""
+        elif self.addressing == Addressing.IMMEDIATE:
+            arg_asm = f"#{arg_asm}"
+        elif self.addressing == Addressing.ZERO_X:
+            arg_asm = f"#{arg_asm},X"
+        elif self.addressing == Addressing.ZERO_Y:
+            arg_asm = f"#{arg_asm},Y"
+        elif self.addressing == Addressing.RELATIVE:
+            delta = signed_byte(arg)
+            plus = "+" if delta >= 0 else ""
+            arg_asm = f"*{plus}{delta:x}"
+        elif self.addressing == Addressing.ABSOLUTE_X:
+            arg_asm = f"{arg_asm},X"
+        elif self.addressing == Addressing.ABSOLUTE_Y:
+            arg_asm = f"{arg_asm},Y"
+        elif self.addressing == Addressing.INDIRECT:
+            arg_asm = f"({arg_asm})"
+        elif self.addressing == Addressing.INDEXED_INDIRECT:
+            arg_asm = f"({arg_asm},X)"
+        elif self.addressing == Addressing.INDIRECT_INDEXED:
+            arg_asm = f"({arg_asm}),Y"
         return f"{self.mnemonic}:{self.size} {arg_asm}"
 
 

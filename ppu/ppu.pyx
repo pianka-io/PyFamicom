@@ -27,10 +27,11 @@ class PPU:
     def start(self):
         self.running = True
         while self.running:
+            sleep(0)
             self.spin(2273)  # 20 * 341
             self.registers.set_vblank()
             self.nmi.trigger()
-            sleep(0.000001)  # 1 microsecond
+            time.sleep(0.000423)  # 2273 PPU cycles, and the PPU runs at 5.369318 MHz
             self.registers.clear_vblank()
             self.spin(84514)  # (240+1)×341
             self.render()
@@ -46,7 +47,7 @@ class PPU:
     def render(self):
         delta = time.perf_counter() - self.timer
         if delta > 1.0:
-            # print(f"Frame Rate: {self.frames}/s {self.clock.cpu_cycles}")
+            print(f"Frame Rate: {self.frames}/s {self.clock.cpu_cycles}")
             self.timer = time.perf_counter()
             self.frames = 0
         self.frames += 1

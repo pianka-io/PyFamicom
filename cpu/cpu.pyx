@@ -29,6 +29,7 @@ class CPU:
         self.running = True
         self.registers.PC = self.entry
         while self.running:
+            sleep(0)
             # clock synchronization
             if not self.clock.cpu_ready():
                 # sleep(0.000001)  # 1 microsecond
@@ -80,102 +81,100 @@ class CPU:
         raise ValueError(f"unsupported argument size: {size}")
 
     def handle_instruction(self, op: Op, arg: int):
-        match op.mnemonic:
-            case "bpl":
-                self.bpl(op, arg)
-            case "clc":
-                self.clc(op, arg)
-            case "jsr":
-                self.jsr(op, arg)
-            case "and":
-                self.and_(op, arg)
-            case "bit":
-                self.bit(op, arg)
-            case "pha":
-                self.pha(op, arg)
-            case "rti":
-                self.rti(op, arg)
-            case "jmp":
-                self.jmp(op, arg)
-            case "rts":
-                self.rts(op, arg)
-            case "pla":
-                self.pla(op, arg)
-            case "adc":
-                self.adc(op, arg)
-            case "sei":
-                self.sei(op, arg)
-            case "iny":
-                self.iny(op, arg)
-            case "dex":
-                self.dex(op, arg)
-            case "dey":
-                self.dey(op, arg)
-            case "txa":
-                self.txa(op, arg)
-            case "tya":
-                self.tya(op, arg)
-            case "tax":
-                self.tax(op, arg)
-            case "tay":
-                self.tay(op, arg)
-            case "sta":
-                self.sta(op, arg)
-            case "stx":
-                self.stx(op, arg)
-            case "sty":
-                self.sty(op, arg)
-            case "ldx":
-                self.ldx(op, arg)
-            case "ldy":
-                self.ldy(op, arg)
-            case "lda":
-                self.lda(op, arg)
-            case "cmp":
-                self.cmp(op, arg)
-            case "bne":
-                self.bne(op, arg)
-            case "inc":
-                self.inc(op, arg)
-            case "inx":
-                self.inx(op, arg)
-            case "dec":
-                self.dec(op, arg)
-            case "nop":
-                self.nop(op, arg)
-            case "beq":
-                self.beq(op, arg)
-            case "bcc":
-                self.bcc(op, arg)
-            case "eor":
-                self.eor(op, arg)
-            case "sec":
-                self.sec(op, arg)
-            case _:
-                raise ValueError(f"unsupported instruction: {op.mnemonic}")
+        if op.mnemonic == "bpl":
+            self.bpl(op, arg)
+        elif op.mnemonic == "clc":
+            self.clc(op, arg)
+        elif op.mnemonic == "jsr":
+            self.jsr(op, arg)
+        elif op.mnemonic == "and":
+            self.and_(op, arg)
+        elif op.mnemonic == "bit":
+            self.bit(op, arg)
+        elif op.mnemonic == "pha":
+            self.pha(op, arg)
+        elif op.mnemonic == "rti":
+            self.rti(op, arg)
+        elif op.mnemonic == "jmp":
+            self.jmp(op, arg)
+        elif op.mnemonic == "rts":
+            self.rts(op, arg)
+        elif op.mnemonic == "pla":
+            self.pla(op, arg)
+        elif op.mnemonic == "adc":
+            self.adc(op, arg)
+        elif op.mnemonic == "sei":
+            self.sei(op, arg)
+        elif op.mnemonic == "iny":
+            self.iny(op, arg)
+        elif op.mnemonic == "dex":
+            self.dex(op, arg)
+        elif op.mnemonic == "dey":
+            self.dey(op, arg)
+        elif op.mnemonic == "txa":
+            self.txa(op, arg)
+        elif op.mnemonic == "tya":
+            self.tya(op, arg)
+        elif op.mnemonic == "tax":
+            self.tax(op, arg)
+        elif op.mnemonic == "tay":
+            self.tay(op, arg)
+        elif op.mnemonic == "sta":
+            self.sta(op, arg)
+        elif op.mnemonic == "stx":
+            self.stx(op, arg)
+        elif op.mnemonic == "sty":
+            self.sty(op, arg)
+        elif op.mnemonic == "ldx":
+            self.ldx(op, arg)
+        elif op.mnemonic == "ldy":
+            self.ldy(op, arg)
+        elif op.mnemonic == "lda":
+            self.lda(op, arg)
+        elif op.mnemonic == "cmp":
+            self.cmp(op, arg)
+        elif op.mnemonic == "bne":
+            self.bne(op, arg)
+        elif op.mnemonic == "inc":
+            self.inc(op, arg)
+        elif op.mnemonic == "inx":
+            self.inx(op, arg)
+        elif op.mnemonic == "dec":
+            self.dec(op, arg)
+        elif op.mnemonic == "nop":
+            self.nop(op, arg)
+        elif op.mnemonic == "beq":
+            self.beq(op, arg)
+        elif op.mnemonic == "bcc":
+            self.bcc(op, arg)
+        elif op.mnemonic == "eor":
+            self.eor(op, arg)
+        elif op.mnemonic == "sec":
+            self.sec(op, arg)
+        else:
+            raise ValueError(f"unsupported instruction: {op.mnemonic}")
 
     def resolve_arg(self, op: Op, arg: int) -> int:
-        match op.addressing:
-            case Addressing.ABSOLUTE:
-                return self.memory.read_byte(arg)
-            case Addressing.ABSOLUTE_X:
-                address = self.registers.X + arg
-                return self.memory.read_byte(address)
-            case Addressing.IMMEDIATE:
-                return arg
-            case Addressing.ZERO:
-                return self.memory.read_byte(arg)
-            case Addressing.RELATIVE:
-                return self.memory.read_byte(self.registers.PC + signed_byte(arg))
-            case Addressing.INDIRECT_INDEXED:
-                low = self.memory.read_byte(arg)
-                high = self.memory.read_byte((arg + 1) & 0xFF)
-                base_address = (high << 8) | low
-                address = (base_address + self.registers.Y) & 0xFFFF
-                value = self.memory.read_byte(address)
-                return value
-            case _:
-                raise ValueError(f"unsupported addressing mode: {op.addressing.name}")
+        if op.addressing == Addressing.ABSOLUTE:
+            return self.memory.read_byte(arg)
+        elif op.addressing == Addressing.ABSOLUTE_X:
+            address = self.registers.X + arg
+            return self.memory.read_byte(address)
+        elif op.addressing == Addressing.IMMEDIATE:
+            return arg
+        elif op.addressing == Addressing.ZERO:
+            return self.memory.read_byte(arg)
+        elif op.addressing == Addressing.RELATIVE:
+            return self.memory.read_byte(self.registers.PC + signed_byte(arg))
+        elif op.addressing == Addressing.INDIRECT_INDEXED:
+            low = self.memory.read_byte(arg)
+            high = self.memory.read_byte((arg + 1) & 0xFF)
+            base_address = (high << 8) | low
+            address = (base_address + self.registers.Y) & 0xFFFF
+            value = self.memory.read_byte(address)
+            return value
+        else:
+            raise ValueError(f"unsupported addressing mode: {op.addressing.name}")
 
     def set_n_by(self, value: int):
         if bool(value & 0x80):
@@ -209,8 +208,7 @@ class CPU:
         self.registers.clear_p(CPU_STATUS.CARRY)
 
     def jsr(self, op: Op, arg: int):
-        match op.addressing:
-            case Addressing.ABSOLUTE:
+        if op.addressing == Addressing.ABSOLUTE:
                 value = self.registers.PC.to_bytes(length=2, byteorder="little")
                 self.stack.push(value[0])
                 self.stack.push(value[1])
@@ -251,11 +249,10 @@ class CPU:
         self.registers.PC = (high << 8) | low
 
     def jmp(self, op: Op, arg: int):
-        match op.addressing:
-            case Addressing.ABSOLUTE:
-                self.registers.PC = arg
-            case _:
-                raise ValueError(f"unsupported addressing mode: {op.addressing.name}")
+        if op.addressing == Addressing.ABSOLUTE:
+            self.registers.PC = arg
+        else:
+            raise ValueError(f"unsupported addressing mode: {op.addressing.name}")
 
     def rts(self, op: Op, arg: int):
         low = self.stack.pull()
@@ -322,31 +319,28 @@ class CPU:
         self.set_z_by(self.registers.Y)
 
     def sta(self, op: Op, arg: int):
-        match op.addressing:
-            case Addressing.ABSOLUTE:
-                self.memory.write_byte(arg, self.registers.A)
-            case Addressing.ZERO:
-                self.memory.write_byte(arg, self.registers.A)
-            case _:
-                raise ValueError(f"unsupported addressing mode: {op.addressing.name}")
+        if op.addressing == Addressing.ABSOLUTE:
+            self.memory.write_byte(arg, self.registers.A)
+        elif op.addressing == Addressing.ZERO:
+            self.memory.write_byte(arg, self.registers.A)
+        else:
+            raise ValueError(f"unsupported addressing mode: {op.addressing.name}")
 
     def stx(self, op: Op, arg: int):
-        match op.addressing:
-            case Addressing.ABSOLUTE:
-                self.memory.write_byte(arg, self.registers.X)
-            case Addressing.ZERO:
-                self.memory.write_byte(arg, self.registers.X)
-            case _:
-                raise ValueError(f"unsupported addressing mode: {op.addressing.name}")
+        if op.addressing == Addressing.ABSOLUTE:
+            self.memory.write_byte(arg, self.registers.X)
+        elif op.addressing == Addressing.ZERO:
+            self.memory.write_byte(arg, self.registers.X)
+        else:
+            raise ValueError(f"unsupported addressing mode: {op.addressing.name}")
 
     def sty(self, op: Op, arg: int):
-        match op.addressing:
-            case Addressing.ABSOLUTE:
-                self.memory.write_byte(arg, self.registers.Y)
-            case Addressing.ZERO:
-                self.memory.write_byte(arg, self.registers.Y)
-            case _:
-                raise ValueError(f"unsupported addressing mode: {op.addressing.name}")
+        if op.addressing == Addressing.ABSOLUTE:
+            self.memory.write_byte(arg, self.registers.Y)
+        elif op.addressing == Addressing.ZERO:
+            self.memory.write_byte(arg, self.registers.Y)
+        else:
+            raise ValueError(f"unsupported addressing mode: {op.addressing.name}")
 
     def ldx(self, op: Op, arg: int):
         value = self.resolve_arg(op, arg)

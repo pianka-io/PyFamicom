@@ -1,5 +1,7 @@
+import os
 from threading import Thread
-from time import sleep
+
+import psutil
 
 from com.clock import Clock
 from cpu.cpu import CPU
