@@ -58,6 +58,7 @@ ops = [
     Op(0x86, "stx", Addressing.ZERO, 3),
     Op(0x8E, "stx", Addressing.ABSOLUTE, 4),
     Op(0x84, "sty", Addressing.ZERO, 3),
+    Op(0x90, "bcc", Addressing.RELATIVE, 2),
     Op(0x98, "tya", Addressing.IMPLICIT, 2),
     Op(0xA2, "ldx", Addressing.IMMEDIATE, 2),
     Op(0xA0, "ldy", Addressing.IMMEDIATE, 2),
@@ -79,6 +80,8 @@ ops = [
     Op(0xEE, "inc", Addressing.ABSOLUTE, 6),
     Op(0xC6, "dec", Addressing.ZERO, 5),
     Op(0xEA, "nop", Addressing.IMPLICIT, 2),
-    Op(0xF0, "beq", Addressing.RELATIVE, 2)
+    Op(0xF0, "beq", Addressing.RELATIVE, 2),
+    Op(0x49, "eor", Addressing.IMMEDIATE, 2),
+    Op(0x38, "sec", Addressing.IMPLICIT, 2),
 ]
 ops_by_code = {op.opcode: op for op in ops}

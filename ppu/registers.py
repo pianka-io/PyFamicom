@@ -27,7 +27,6 @@ class Registers:
         self.background_pattern_table = PATTERN_TABLE_OFFSET_0
 
     def read_byte(self, address: int) -> int:
-        # print(f"reading from ${address:x}")
         match address:
             case PPU_REGISTER.PPUCTRL: return self.PPUCTRL
             case PPU_REGISTER.PPUMASK: return self.PPUMASK
@@ -48,7 +47,6 @@ class Registers:
                 raise ValueError(f"unknown address ${address:x}")
 
     def write_byte(self, address: int, value: int):
-        # print(f"writing ${value:x} to ${address:x}")
         match address:
             case PPU_REGISTER.PPUCTRL:
                 self.PPUCTRL = value
@@ -81,8 +79,7 @@ class Registers:
                 self.memory.write_byte(ppuaddr, self.PPUDATA)
                 increment = 32 if (self.PPUCTRL & 0b100) else 1
                 self.write_ppuaddr((ppuaddr + increment) & 0x3FFF)
-                # if self.PPUDATA != 0xFF:
-                print(f"[${ppuaddr:x}] ${self.PPUDATA:x}")
+                # print(f"[@VRAM:${ppuaddr:x}] ${self.PPUDATA:x}")
             case PPU_REGISTER.OAMDMA: self.OAMDMA = value
             case _:
                 raise ValueError(f"unknown address ${address:x}")

@@ -28,7 +28,7 @@ class CPU:
         self.running = True
         self.registers.PC = self.entry
         while self.running:
-            sleep(0.0001)
+            # sleep(0.0001)
             # ppu nmi interrupt
             if self.nmi.active():
                 self.nmi.clear()
@@ -46,11 +46,11 @@ class CPU:
             op = ops_by_code[opcode]
             arg = self.read_arg(op)
 
-            self.print_instruction(op, arg)
+            # self.print_instruction(op, arg)
             self.registers.PC += op.size
             self.handle_instruction(op, arg)
             self.cycles += op.cycles
-            self.print_registers()
+            # self.print_registers()
 
     def stop(self):
         self.running = False
@@ -61,7 +61,7 @@ class CPU:
         print(f"[${self.registers.PC:x}:${rom_address:x}] {assembler}")
 
     def print_registers(self):
-        print(f"P b{self.registers.P:b} SP ${self.registers.SP:x} A ${self.registers.A:x} X ${self.registers.X:x} Y ${self.registers.Y:x}")
+        print(f"P b{self.registers.P:08b} SP ${self.registers.SP:x} A ${self.registers.A:x} X ${self.registers.X:x} Y ${self.registers.Y:x}")
 
     def read_arg(self, op: Op) -> int:
         begin = self.registers.PC + 1
@@ -140,6 +140,12 @@ class CPU:
                 self.nop(op, arg)
             case "beq":
                 self.beq(op, arg)
+            case "bcc":
+                self.bcc(op, arg)
+            case "eor":
+                self.eor(op, arg)
+            case "sec":
+                self.sec(op, arg)
             case _:
                 raise ValueError(f"unsupported instruction: {op.mnemonic}")
 
@@ -165,7 +171,7 @@ class CPU:
                 raise ValueError(f"unsupported addressing mode: {op.addressing.name}")
 
     def set_n_by(self, value: int):
-        if value < 0:
+        if bool(value & 0x80):
             self.registers.set_p(CPU_STATUS.NEGATIVE)
         else:
             self.registers.clear_p(CPU_STATUS.NEGATIVE)
@@ -177,7 +183,7 @@ class CPU:
             self.registers.clear_p(CPU_STATUS.ZERO)
 
     def set_c_by(self, value: int):
-        if value < -128 or value > 127:
+        if value > 0xFF:
             self.registers.set_p(CPU_STATUS.CARRY)
         else:
             self.registers.clear_p(CPU_STATUS.CARRY)
@@ -189,9 +195,8 @@ class CPU:
             self.registers.clear_p(CPU_STATUS.CARRY)
 
     def bpl(self, op: Op, arg: int):
-        value = self.resolve_arg(op, arg)
         if not self.registers.is_p(CPU_STATUS.NEGATIVE):
-            self.registers.PC = value
+            self.registers.PC += signed_byte(arg)
 
     def clc(self, op: Op, arg: int):
         self.registers.clear_p(CPU_STATUS.CARRY)
@@ -253,18 +258,23 @@ class CPU:
     def pla(self, op: Op, arg: int):
         value = self.stack.pull()
         self.registers.A = value & 0xFF
-        self.set_n_by(value)
-        self.set_z_by(value)
+        self.set_n_by(self.registers.A)
+        self.set_z_by(self.registers.A)
 
     def adc(self, op: Op, arg: int):
         value = self.resolve_arg(op, arg)
-        total = self.registers.A + value
+        carry = 1 if self.registers.is_p(CPU_STATUS.CARRY) else 0
+        total = self.registers.A + value + carry
         self.registers.A = total & 0xFF
 
-        self.set_n_by(value)
-        self.set_z_by(value)
-        self.set_c_by(value)
-        self.set_v_by(value)
+        self.set_n_by(self.registers.A)
+        self.set_z_by(self.registers.A)
+        self.set_c_by(total)
+        # self.set_v_by(total)
+        if ((self.registers.A ^ total) & (value ^ total) & 0x80) != 0:
+            self.registers.set_p(CPU_STATUS.OVERFLOW)
+        else:
+            self.registers.clear_p(CPU_STATUS.OVERFLOW)
 
     def sei(self, op: Op, arg: int):
         self.registers.set_p(CPU_STATUS.INTERRUPT)
@@ -385,3 +395,17 @@ class CPU:
     def beq(self, op: Op, arg: int):
         if self.registers.is_p(CPU_STATUS.ZERO):
             self.registers.PC = self.registers.PC + signed_byte(arg)
+
+    def bcc(self, op: Op, arg: int):
+        if not self.registers.is_p(CPU_STATUS.CARRY):
+            self.registers.PC = self.registers.PC + signed_byte(arg)
+
+    def eor(self, op: Op, arg: int):
+        value = self.resolve_arg(op, arg)
+        result = self.registers.A ^ value
+        self.registers.A = result
+        self.set_n_by(result)
+        self.set_z_by(result)
+
+    def sec(self, op: Op, arg: int):
+        self.registers.set_p(CPU_STATUS.CARRY)
