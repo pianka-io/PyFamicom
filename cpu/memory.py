@@ -1,6 +1,5 @@
 from common.constants import PRG_OFFSET, PRG_BANK_SIZE, HEADER_SIZE, CPU_MEMORY_SIZE, PPU_REGISTER
 from ppu.ppu import PPU
-from ppu.registers import Registers as PpuRegisters
 
 
 class Memory:

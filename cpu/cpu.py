@@ -28,7 +28,6 @@ class CPU:
         self.running = True
         self.registers.PC = self.entry
         while self.running:
-            # sleep(0.0001)
             # ppu nmi interrupt
             if self.nmi.active():
                 self.nmi.clear()
@@ -109,7 +108,7 @@ class CPU:
             case "txa":
                 self.txa(op, arg)
             case "tya":
-                self.txa(op, arg)
+                self.tya(op, arg)
             case "tax":
                 self.tax(op, arg)
             case "tay":
@@ -164,9 +163,11 @@ class CPU:
                 return self.memory.read_byte(self.registers.PC + signed_byte(arg))
             case Addressing.INDIRECT_INDEXED:
                 low = self.memory.read_byte(arg)
-                high = self.registers.Y & 0xFF
-                address = int.from_bytes([low, high], byteorder='little')
-                return self.memory.read_byte(address)
+                high = self.memory.read_byte((arg + 1) & 0xFF)
+                base_address = (high << 8) | low
+                address = (base_address + self.registers.Y) & 0xFFFF
+                value = self.memory.read_byte(address)
+                return value
             case _:
                 raise ValueError(f"unsupported addressing mode: {op.addressing.name}")
 
@@ -285,12 +286,12 @@ class CPU:
         self.set_z_by(self.registers.Y)
 
     def dex(self, op: Op, arg: int):
-        self.registers.X -= 1
+        self.registers.X = (self.registers.X - 1) & 0xFF
         self.set_n_by(self.registers.X)
         self.set_z_by(self.registers.X)
 
     def dey(self, op: Op, arg: int):
-        self.registers.Y -= 1
+        self.registers.Y = (self.registers.Y - 1) & 0xFF
         self.set_n_by(self.registers.Y)
         self.set_z_by(self.registers.Y)
 
@@ -305,12 +306,12 @@ class CPU:
         self.set_z_by(self.registers.A)
 
     def tax(self, op: Op, arg: int):
-        self.registers.X = self.registers.A
+        self.registers.X = self.registers.A & 0xFF
         self.set_n_by(self.registers.X)
         self.set_z_by(self.registers.X)
 
     def tay(self, op: Op, arg: int):
-        self.registers.Y = self.registers.A
+        self.registers.Y = self.registers.A & 0xFF
         self.set_n_by(self.registers.Y)
         self.set_z_by(self.registers.Y)
 
@@ -349,7 +350,7 @@ class CPU:
 
     def ldy(self, op: Op, arg: int):
         value = self.resolve_arg(op, arg)
-        self.registers.Y = value
+        self.registers.Y = value & 0xFF
         self.set_n_by(self.registers.Y)
         self.set_z_by(self.registers.Y)
 
@@ -384,7 +385,7 @@ class CPU:
         self.set_z_by(self.registers.X)
 
     def dec(self, op: Op, arg: int):
-        value = self.resolve_arg(op, arg) - 1
+        value = (self.resolve_arg(op, arg) - 1) & 0xFF
         self.memory.write_byte(arg, value)
         self.set_n_by(value)
         self.set_z_by(value)

@@ -16,6 +16,7 @@ class PPU:
         self.nmi = nmi
         self.memory = Memory()
         self.registers = Registers(self.memory)
+        self.dump = 0
 
     def start(self):
         self.running = True
@@ -31,6 +32,7 @@ class PPU:
 
     def render(self):
         frame = Frame()
+        self.dump += 1
         for tile_y in range(30):
             for tile_x in range(32):
                 attribute_table_address = self.registers.name_table + 0x03C0
@@ -47,10 +49,9 @@ class PPU:
                     high_byte = self.memory.read_byte(tile_address + row + 8)
                     for bit in range(8):
                         pixel_value = (((high_byte >> (7 - bit)) & 1) << 1) | ((low_byte >> (7 - bit)) & 1)
-
-                        color_index = (palette_index * 4) + pixel_value
+                        palette_address = 0x3F00 + (palette_index * 4) + pixel_value
+                        color_index = self.memory.read_byte(palette_address)
                         r, g, b = self.pal.color(color_index)
-
                         pixel_x = tile_x * 8 + bit
                         pixel_y = tile_y * 8 + row
                         frame.write_pixel(pixel_x, pixel_y, r, g, b)

@@ -1,5 +1,4 @@
-from common.constants import PPU_MEMORY_SIZE, NAME_TABLE_MIRROR_OFFSET_0, NAME_TABLE_MIRROR_OFFSET_1, \
-    PALETTE_RAM_MIRROR_OFFSET_0, PALETTE_RAM_MIRROR_OFFSET_1
+from common.constants import PPU_MEMORY_SIZE, NAME_TABLE_MIRROR_OFFSET_0, NAME_TABLE_MIRROR_OFFSET_1
 
 
 class Memory:
@@ -17,6 +16,4 @@ class Memory:
     def translate_address(self, address: int) -> int:
         if NAME_TABLE_MIRROR_OFFSET_0 <= address <= NAME_TABLE_MIRROR_OFFSET_1:
             return address - 0x1000
-        # if PALETTE_RAM_MIRROR_OFFSET_0 <= address <= PALETTE_RAM_MIRROR_OFFSET_1:
-        #     return address - 0x1000
         return address
