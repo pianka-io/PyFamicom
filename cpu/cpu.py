@@ -28,6 +28,7 @@ class CPU:
         self.running = True
         self.registers.PC = self.entry
         while self.running:
+            sleep(0.0001)
             # ppu nmi interrupt
             if self.nmi.active():
                 self.nmi.clear()
@@ -49,6 +50,7 @@ class CPU:
             self.registers.PC += op.size
             self.handle_instruction(op, arg)
             self.cycles += op.cycles
+            self.print_registers()
 
     def stop(self):
         self.running = False
@@ -57,6 +59,9 @@ class CPU:
         rom_address = self.memory.translate_cpu_address_to_rom(self.registers.PC)
         assembler = op.assembler(arg)
         print(f"[${self.registers.PC:x}:${rom_address:x}] {assembler}")
+
+    def print_registers(self):
+        print(f"P b{self.registers.P:b} SP ${self.registers.SP:x} A ${self.registers.A:x} X ${self.registers.X:x} Y ${self.registers.Y:x}")
 
     def read_arg(self, op: Op) -> int:
         begin = self.registers.PC + 1
@@ -154,7 +159,7 @@ class CPU:
             case Addressing.INDIRECT_INDEXED:
                 low = self.memory.read_byte(arg)
                 high = self.registers.Y & 0xFF
-                address = int.from_bytes([high, low], byteorder='little')
+                address = int.from_bytes([low, high], byteorder='little')
                 return self.memory.read_byte(address)
             case _:
                 raise ValueError(f"unsupported addressing mode: {op.addressing.name}")
@@ -202,7 +207,7 @@ class CPU:
     def and_(self, op: Op, arg: int):
         a = self.registers.A
         value = a & arg
-        self.registers.A = value
+        self.registers.A = value & 0xFF
 
         self.set_n_by(value)
         self.set_z_by(value)
@@ -247,7 +252,7 @@ class CPU:
 
     def pla(self, op: Op, arg: int):
         value = self.stack.pull()
-        self.registers.A = value
+        self.registers.A = value & 0xFF
         self.set_n_by(value)
         self.set_z_by(value)
 
@@ -265,7 +270,7 @@ class CPU:
         self.registers.set_p(CPU_STATUS.INTERRUPT)
 
     def iny(self, op: Op, arg: int):
-        self.registers.Y += 1
+        self.registers.Y = (self.registers.Y + 1) & 0xFF
         self.set_n_by(self.registers.Y)
         self.set_z_by(self.registers.Y)
 
@@ -280,12 +285,12 @@ class CPU:
         self.set_z_by(self.registers.Y)
 
     def txa(self, op: Op, arg: int):
-        self.registers.A = self.registers.X
+        self.registers.A = self.registers.X & 0xFF
         self.set_n_by(self.registers.A)
         self.set_z_by(self.registers.A)
 
     def tya(self, op: Op, arg: int):
-        self.registers.A = self.registers.Y
+        self.registers.A = self.registers.Y & 0xFF
         self.set_n_by(self.registers.A)
         self.set_z_by(self.registers.A)
 
@@ -340,7 +345,7 @@ class CPU:
 
     def lda(self, op: Op, arg: int):
         value = self.resolve_arg(op, arg)
-        self.registers.A = value
+        self.registers.A = value & 0xFF
         self.set_n_by(self.registers.A)
         self.set_z_by(self.registers.A)
 
@@ -358,13 +363,13 @@ class CPU:
             self.registers.PC = self.registers.PC + signed_byte(arg)
 
     def inc(self, op: Op, arg: int):
-        value = self.resolve_arg(op, arg) + 1
+        value = (self.resolve_arg(op, arg) + 1) & 0xFF
         self.memory.write_byte(arg, value)
         self.set_n_by(value)
         self.set_z_by(value)
 
     def inx(self, op: Op, arg: int):
-        self.registers.X += 1
+        self.registers.X = (self.registers.X + 1) & 0xFF
         self.set_n_by(self.registers.X)
         self.set_z_by(self.registers.X)
 
