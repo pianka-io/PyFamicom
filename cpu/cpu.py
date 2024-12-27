@@ -1,6 +1,7 @@
 from time import sleep
 
 from com.addressing import argument_size, Addressing
+from com.clock import Clock
 from com.constants import RESET_VECTOR, CPU_STATUS, NMI_VECTOR
 from com.interrupt import Interrupt
 from com.utilities import signed_byte
@@ -12,9 +13,9 @@ from ppu.ppu import PPU
 
 
 class CPU:
-    def __init__(self, ppu: PPU, nmi: Interrupt, prg_rom: bytes):
+    def __init__(self, clock: Clock, ppu: PPU, nmi: Interrupt, prg_rom: bytes):
         self.running = False
-        self.cycles = 0
+        self.clock = clock
         self.ppu = ppu
         self.nmi = nmi
 
@@ -28,6 +29,11 @@ class CPU:
         self.running = True
         self.registers.PC = self.entry
         while self.running:
+            # clock synchronization
+            if not self.clock.cpu_ready():
+                # sleep(0.000001)  # 1 microsecond
+                sleep(0)
+
             # ppu nmi interrupt
             if self.nmi.active():
                 self.nmi.clear()
@@ -48,7 +54,7 @@ class CPU:
             # self.print_instruction(op, arg)
             self.registers.PC += op.size
             self.handle_instruction(op, arg)
-            self.cycles += op.cycles
+            self.clock.cpu_cycles += op.cycles
             # self.print_registers()
 
     def stop(self):

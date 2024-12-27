@@ -1,6 +1,7 @@
 from threading import Thread
 from time import sleep
 
+from com.clock import Clock
 from cpu.cpu import CPU
 from com.interrupt import Interrupt
 from ines.rom import ROM
@@ -13,10 +14,11 @@ class Emulator:
     def __init__(self, rom: ROM, pal: Palette):
         self.running = False
         self.rom = rom
+        self.clock = Clock()
         self.nmi = Interrupt()
         self.tv = TV()
-        self.ppu = PPU(self.tv, pal, self.nmi)
-        self.cpu = CPU(self.ppu, self.nmi, rom.prg_rom)
+        self.ppu = PPU(self.clock, self.tv, pal, self.nmi)
+        self.cpu = CPU(self.clock, self.ppu, self.nmi, rom.prg_rom)
 
     def start(self):
         self.running = True

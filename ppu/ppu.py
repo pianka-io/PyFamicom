@@ -1,5 +1,7 @@
+import time
 from time import sleep
 
+from com.clock import Clock
 from com.interrupt import Interrupt
 from pal.palette import Palette
 from ppu.memory import Memory
@@ -9,8 +11,9 @@ from tv.tv import TV
 
 
 class PPU:
-    def __init__(self, tv: TV, pal: Palette, nmi: Interrupt):
+    def __init__(self, clock: Clock, tv: TV, pal: Palette, nmi: Interrupt):
         self.running = False
+        self.clock = clock
         self.tv = tv
         self.pal = pal
         self.nmi = nmi
@@ -18,19 +21,36 @@ class PPU:
         self.registers = Registers(self.memory)
         self.dump = 0
 
+        self.timer = time.perf_counter()
+        self.frames = 0
+
     def start(self):
         self.running = True
         while self.running:
+            self.spin(2273)  # 20 * 341
             self.registers.set_vblank()
             self.nmi.trigger()
-            sleep(0.01667)
+            sleep(0.000001)  # 1 microsecond
             self.registers.clear_vblank()
+            self.spin(84514)  # (240+1)×341
             self.render()
 
     def stop(self):
         self.running = False
 
+    def spin(self, cycles: int):
+        self.clock.ppu_cycles += cycles
+        if not self.clock.cpu_ready():
+            sleep(0)
+
     def render(self):
+        delta = time.perf_counter() - self.timer
+        if delta > 1.0:
+            # print(f"Frame Rate: {self.frames}/s {self.clock.cpu_cycles}")
+            self.timer = time.perf_counter()
+            self.frames = 0
+        self.frames += 1
+
         frame = Frame()
         self.dump += 1
         for tile_y in range(30):
