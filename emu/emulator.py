@@ -2,7 +2,7 @@ from threading import Thread
 from time import sleep
 
 from cpu.cpu import CPU
-from common.interrupt import Interrupt
+from com.interrupt import Interrupt
 from ines.rom import ROM
 from pal.palette import Palette
 from ppu.ppu import PPU

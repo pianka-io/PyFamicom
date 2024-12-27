@@ -1,4 +1,4 @@
-from common.constants import STACK_OFFSET
+from com.constants import STACK_OFFSET
 from cpu.memory import Memory
 from cpu.registers import Registers
 

@@ -1,5 +1,5 @@
-from common.addressing import Addressing, argument_size
-from common.utilities import signed_byte
+from com.addressing import Addressing, argument_size
+from com.utilities import signed_byte
 
 
 class Op:

@@ -1,6 +1,6 @@
 from time import sleep
 
-from common.interrupt import Interrupt
+from com.interrupt import Interrupt
 from pal.palette import Palette
 from ppu.memory import Memory
 from ppu.registers import Registers

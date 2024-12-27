@@ -2,7 +2,7 @@ from typing import Optional
 import pygame
 import sys
 
-from common.constants import TV_WIDTH, TV_HEIGHT, TV_SCALE
+from com.constants import TV_WIDTH, TV_HEIGHT, TV_SCALE
 from tv.frame import Frame
 
 

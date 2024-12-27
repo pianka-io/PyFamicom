@@ -1,4 +1,4 @@
-from common.constants import PRG_OFFSET, PRG_BANK_SIZE, HEADER_SIZE, CPU_MEMORY_SIZE, PPU_REGISTER
+from com.constants import PRG_OFFSET, PRG_BANK_SIZE, HEADER_SIZE, CPU_MEMORY_SIZE, PPU_REGISTER
 from ppu.ppu import PPU
 
 

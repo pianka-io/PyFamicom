@@ -1,9 +1,9 @@
 from time import sleep
 
-from common.addressing import argument_size, Addressing
-from common.constants import RESET_VECTOR, CPU_STATUS, NMI_VECTOR
-from common.interrupt import Interrupt
-from common.utilities import signed_byte
+from com.addressing import argument_size, Addressing
+from com.constants import RESET_VECTOR, CPU_STATUS, NMI_VECTOR
+from com.interrupt import Interrupt
+from com.utilities import signed_byte
 from cpu.memory import Memory
 from cpu.opcodes import ops_by_code, Op
 from cpu.registers import Registers

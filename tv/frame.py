@@ -1,4 +1,4 @@
-from common.constants import TV_WIDTH, TV_HEIGHT
+from com.constants import TV_WIDTH, TV_HEIGHT
 
 
 class Frame:
