@@ -1,8 +1,12 @@
-from common.constants import PPU_REGISTER, PPUSTATUS_VBLANK
+from common.constants import PPU_REGISTER, PPUSTATUS_VBLANK, PPUCTRL, PATTERN_TABLE_OFFSET_0, PATTERN_TABLE_OFFSET_1, \
+    NAME_TABLE_OFFSET
+from ppu.memory import Memory
 
 
 class Registers:
-    def __init__(self):
+    def __init__(self, memory: Memory):
+        self.memory = memory
+
         self.PPUCTRL = 0
         self.PPUMASK = 0
         self.PPUSTATUS = 0
@@ -13,10 +17,14 @@ class Registers:
         self.PPUDATA = 0
         self.OAMDMA = 0
 
-        self.ppuscroll_read = 0
-        self.ppuscroll_write = 0
-        self.ppuaddr_read = 0
-        self.ppuaddr_write = 0
+        self.ppuscroll_read = 1
+        self.ppuscroll_write = 1
+        self.ppuaddr_read = 1
+        self.ppuaddr_write = 1
+
+        self.name_table = NAME_TABLE_OFFSET[0]
+        self.sprite_pattern_table = PATTERN_TABLE_OFFSET_0
+        self.background_pattern_table = PATTERN_TABLE_OFFSET_0
 
     def read_byte(self, address: int) -> int:
         # print(f"reading from ${address:x}")
@@ -42,7 +50,21 @@ class Registers:
     def write_byte(self, address: int, value: int):
         # print(f"writing ${value:x} to ${address:x}")
         match address:
-            case PPU_REGISTER.PPUCTRL: self.PPUCTRL = value
+            case PPU_REGISTER.PPUCTRL:
+                self.PPUCTRL = value
+                # name table
+                name_table_index = self.PPUCTRL & 0b11
+                self.name_table = NAME_TABLE_OFFSET[name_table_index]
+                # sprite pattern table
+                if self.is_ppuctrl(PPUCTRL.SPRITE_PATTERN_TABLE):
+                    self.sprite_pattern_table = PATTERN_TABLE_OFFSET_1
+                else:
+                    self.sprite_pattern_table = PATTERN_TABLE_OFFSET_0
+                # background pattern table
+                if self.is_ppuctrl(PPUCTRL.BACKGROUND_PATTERN_TABLE):
+                    self.background_pattern_table = PATTERN_TABLE_OFFSET_1
+                else:
+                    self.background_pattern_table = PATTERN_TABLE_OFFSET_0
             case PPU_REGISTER.PPUMASK: self.PPUMASK = value
             case PPU_REGISTER.PPUSTATUS: self.PPUSTATUS = value
             case PPU_REGISTER.OAMADDR: self.OAMADDR = value
@@ -53,10 +75,32 @@ class Registers:
             case PPU_REGISTER.PPUADDR:
                 self.PPUADDR[self.ppuaddr_write] = value
                 self.ppuaddr_write ^= 1
-            case PPU_REGISTER.PPUDATA: self.PPUDATA = value
+            case PPU_REGISTER.PPUDATA:
+                self.PPUDATA = value
+                ppuaddr = self.read_ppuaddr()
+                self.memory.write_byte(ppuaddr, self.PPUDATA)
+                increment = 32 if (self.PPUCTRL & 0b100) else 1
+                self.write_ppuaddr((ppuaddr + increment) & 0x3FFF)
+                # if self.PPUDATA != 0xFF:
+                print(f"[${ppuaddr:x}] ${self.PPUDATA:x}")
             case PPU_REGISTER.OAMDMA: self.OAMDMA = value
             case _:
                 raise ValueError(f"unknown address ${address:x}")
+
+    def read_ppuaddr(self) -> int:
+        return int.from_bytes(self.PPUADDR, byteorder="little")
+
+    def write_ppuaddr(self, value: int):
+        self.PPUADDR = bytearray(value.to_bytes(2, byteorder="little"))
+
+    def is_ppuctrl(self, flag: int) -> bool:
+        return self.PPUCTRL & flag == flag
+
+    def set_ppuctrl(self):
+        self.PPUSTATUS |= PPUSTATUS_VBLANK
+
+    def clear_ppuctrl(self, flag: int):
+        self.PPUCTRL &= ~flag
 
     def set_vblank(self):
         self.PPUSTATUS |= PPUSTATUS_VBLANK
