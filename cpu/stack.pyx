@@ -10,15 +10,16 @@ cdef class Stack:
 
         self.registers.SP = STACK_OFFSET
 
-    cdef push(self, int value):
+    cdef void push(self, int value) nogil:
         # print(f"push {value:x} @ {self.registers.SP:x}")
-        sp = self.registers.SP
+        cdef int sp = self.registers.SP
         self.memory.write_byte(sp, value & 0xFF)
-        self.registers.SP -= 1
+        cdef int next = self.registers.SP - 1
+        self.registers.SP = next
 
-    cdef int pull(self):
-        sp = self.registers.SP + 1
+    cdef int pull(self) nogil:
+        cdef int sp = self.registers.SP + 1
         self.registers.SP = sp
-        value = self.memory.read_byte(sp)
+        cdef int value = self.memory.read_byte(sp)
         # print(f"pull {value:x} @ {self.registers.SP:x}")
         return value

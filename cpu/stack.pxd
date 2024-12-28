@@ -5,5 +5,5 @@ cdef class Stack:
     cdef Registers registers
     cdef Memory memory
 
-    cdef push(self, int value)
-    cdef int pull(self)
+    cdef void push(self, int value) nogil
+    cdef int pull(self) nogil

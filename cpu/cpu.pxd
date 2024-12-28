@@ -17,55 +17,58 @@ cdef class CPU:
     cdef Stack stack
     cdef int entry
 
-    cdef start(self)
-    cdef stop(self)
-    cdef print_registers(self)
-    cdef handle_instruction(self, int opcode)
-    cdef set_n_by(self, int value)
-    cdef set_z_by(self, int value)
-    cdef set_c_by(self, int value)
-    cdef set_v_by(self, int value)
-    cdef bpl_10(self, int arg)
-    cdef clc_18(self)
-    cdef jsr_20(self, int arg)
-    cdef and_29(self, int arg)
-    cdef bit_2C(self, int arg)
-    cdef pha_48(self)
-    cdef rti_40(self)
-    cdef jmp_4c(self, int arg)
-    cdef rts_60(self)
-    cdef pla_68(self)
-    cdef adc_69(self, int arg)
-    cdef sei_78(self)
-    cdef iny_c8(self)
-    cdef dex_ca(self)
-    cdef dey_88(self)
-    cdef txa_8a(self)
-    cdef tya_98(self)
-    cdef tax_aa(self)
-    cdef tay_a8(self)
-    cdef sta_8d(self, int arg)
-    cdef sta_85(self, int arg)
-    cdef stx_86(self, int arg)
-    cdef stx_8e(self, int arg)
-    cdef sty_84(self, int arg)
-    cdef ldx_a2(self, int arg)
-    cdef ldy_a0(self, int arg)
-    cdef lda_a5(self, int arg)
-    cdef lda_a9(self, int arg)
-    cdef lda_ad(self, int arg)
-    cdef lda_b1(self, int arg)
-    cdef lda_bd(self, int arg)
-    cdef cmp_c5(self, int arg)
-    cdef cmp_c9(self, int arg)
-    cdef cmp_cd(self, int arg)
-    cdef bne_d0(self, int arg)
-    cdef inc_e6(self, int arg)
-    cdef inc_ee(self, int arg)
-    cdef inx_e8(self)
-    cdef dec_c6(self, int arg)
-    cdef nop_ea(self)
-    cdef beq_f0(self, int arg)
-    cdef bcc_90(self, int arg)
-    cdef eor_49(self, int arg)
-    cdef sec_38(self)
+    cdef void start(self) nogil
+    cdef void stop(self) nogil
+    cdef void pause(self, double seconds) nogil
+    cdef void track_cycles(self, int cycles) nogil
+    cdef void advance_pc(self, int offset) nogil
+    # cdef void print_registers(self) nogil
+    cdef void handle_instruction(self, int opcode) nogil
+    cdef void set_n_by(self, int value) nogil
+    cdef void set_z_by(self, int value) nogil
+    cdef void set_c_by(self, int value) nogil
+    cdef void set_v_by(self, int value) nogil
+    cdef void bpl_10(self, int arg) nogil
+    cdef void clc_18(self) nogil
+    cdef void jsr_20(self, int arg) nogil
+    cdef void and_29(self, int arg) nogil
+    cdef void bit_2C(self, int arg) nogil
+    cdef void pha_48(self) nogil
+    cdef void rti_40(self) nogil
+    cdef void jmp_4c(self, int arg) nogil
+    cdef void rts_60(self) nogil
+    cdef void pla_68(self) nogil
+    cdef void adc_69(self, int arg) nogil
+    cdef void sei_78(self) nogil
+    cdef void iny_c8(self) nogil
+    cdef void dex_ca(self) nogil
+    cdef void dey_88(self) nogil
+    cdef void txa_8a(self) nogil
+    cdef void tya_98(self) nogil
+    cdef void tax_aa(self) nogil
+    cdef void tay_a8(self) nogil
+    cdef void sta_8d(self, int arg) nogil
+    cdef void sta_85(self, int arg) nogil
+    cdef void stx_86(self, int arg) nogil
+    cdef void stx_8e(self, int arg) nogil
+    cdef void sty_84(self, int arg) nogil
+    cdef void ldx_a2(self, int arg) nogil
+    cdef void ldy_a0(self, int arg) nogil
+    cdef void lda_a5(self, int arg) nogil
+    cdef void lda_a9(self, int arg) nogil
+    cdef void lda_ad(self, int arg) nogil
+    cdef void lda_b1(self, int arg) nogil
+    cdef void lda_bd(self, int arg) nogil
+    cdef void cmp_c5(self, int arg) nogil
+    cdef void cmp_c9(self, int arg) nogil
+    cdef void cmp_cd(self, int arg) nogil
+    cdef void bne_d0(self, int arg) nogil
+    cdef void inc_e6(self, int arg) nogil
+    cdef void inc_ee(self, int arg) nogil
+    cdef void inx_e8(self) nogil
+    cdef void dec_c6(self, int arg) nogil
+    cdef void nop_ea(self) nogil
+    cdef void beq_f0(self, int arg) nogil
+    cdef void bcc_90(self, int arg) nogil
+    cdef void eor_49(self, int arg) nogil
+    cdef void sec_38(self) nogil

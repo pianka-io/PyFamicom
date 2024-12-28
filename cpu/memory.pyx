@@ -10,18 +10,22 @@ cdef class Memory:
         self.memory[PRG_OFFSET:CPU_MEMORY_SIZE] = prg_rom
         self.mirrored = len(prg_rom) <= PRG_BANK_SIZE
 
-    cdef int read_byte(self, int address):
+    cdef int read_byte(self, int address) nogil:
         if PPU_REGISTER_PPUCTRL <= address <= PPU_REGISTER_OAMDMA:
             return self.ppu.registers.read_byte(address)
         translated = self.translate_address(address)
         return self.memory[translated]
 
-    cdef int read_word(self, int address):
-        translated = self.translate_address(address)
-        value = self.memory[translated:translated + 2]
-        return int.from_bytes(value, byteorder='little')
+    cdef int read_word(self, int address) nogil:
+        cdef int translated = self.translate_address(address)
+        cdef unsigned char low_byte, high_byte
 
-    cdef void write_byte(self, int address, int value):
+        low_byte = self.memory[translated]
+        high_byte = self.memory[translated + 1]
+
+        return (<int> high_byte << 8) | <int> low_byte
+
+    cdef void write_byte(self, int address, int value) nogil:
         if PPU_REGISTER_PPUCTRL <= address <= PPU_REGISTER_OAMDMA:
             self.ppu.registers.write_byte(address, value)
             return
