@@ -1,12 +1,12 @@
-class Interrupt:
+cdef class Interrupt:
     def __init__(self):
         self.__triggered = False
 
-    def trigger(self):
+    cdef trigger(self):
         self.__triggered = True
 
-    def active(self):
+    cdef active(self):
         return self.__triggered
 
-    def clear(self):
+    cdef clear(self):
         self.__triggered = False

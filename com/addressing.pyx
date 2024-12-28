@@ -1,27 +1,23 @@
-from enum import Enum
+cdef int ADDR_IMPLICIT = 1
+cdef int ADDR_ACCUMULATOR = 2
+cdef int ADDR_IMMEDIATE = 3
+cdef int ADDR_ZERO = 4
+cdef int ADDR_ZERO_X = 5
+cdef int ADDR_ZERO_Y = 6
+cdef int ADDR_RELATIVE = 7
+cdef int ADDR_ABSOLUTE = 8
+cdef int ADDR_ABSOLUTE_X = 9
+cdef int ADDR_ABSOLUTE_Y = 10
+cdef int ADDR_INDIRECT = 11
+cdef int ADDR_INDEXED_INDIRECT = 12
+cdef int ADDR_INDIRECT_INDEXED = 13
 
 
-class Addressing(Enum):
-    IMPLICIT = 1
-    ACCUMULATOR = 2
-    IMMEDIATE = 3
-    ZERO = 4
-    ZERO_X = 5
-    ZERO_Y = 6
-    RELATIVE = 7
-    ABSOLUTE = 8
-    ABSOLUTE_X = 9
-    ABSOLUTE_Y = 10
-    INDIRECT = 11
-    INDEXED_INDIRECT = 12
-    INDIRECT_INDEXED = 13
-
-
-def argument_size(addressing: Addressing) -> int:
-    if addressing == Addressing.IMPLICIT:
+cdef int argument_size(int addressing):
+    if addressing == ADDR_IMPLICIT:
         return 0
-    if addressing in [Addressing.IMMEDIATE, Addressing.RELATIVE, Addressing.ZERO, Addressing.INDIRECT_INDEXED]:
+    if addressing in [ADDR_IMMEDIATE, ADDR_RELATIVE, ADDR_ZERO, ADDR_INDIRECT_INDEXED]:
         return 1
-    if addressing in [Addressing.ABSOLUTE, Addressing.ABSOLUTE_X]:
+    if addressing in [ADDR_ABSOLUTE, ADDR_ABSOLUTE_X]:
         return 2
     raise ValueError(f"unsupported addressing mode: {addressing.name}")

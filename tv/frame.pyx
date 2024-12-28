@@ -1,14 +1,21 @@
-from com.constants import TV_WIDTH, TV_HEIGHT
+from com.constants cimport TV_WIDTH, TV_HEIGHT
 
 
-class Frame:
+cdef class Frame:
     def __init__(self):
-        self.pixels = bytearray(TV_WIDTH * TV_HEIGHT * 3)
+        # self.pixels = char[TV_WIDTH * TV_HEIGHT * 3]
+        ...
 
-    def write_pixel(self, x: int, y: int, r: int, g: int, b: int):
+    cdef write_pixel(self, int x, int y, int r, int g, int b):
         index = (y * TV_WIDTH + x) * 3
-        self.pixels[index:index + 3] = [r, g, b]
+        self.pixels[index] = r
+        self.pixels[index + 1] = g
+        self.pixels[index + 2] = b
 
-    def read_pixel(self, x: int, y: int) -> (int, int, int):
-        index = (y * TV_WIDTH + x) * 3
-        return tuple(self.pixels[index:index + 3])
+    cdef Pixel read_pixel(self, int x, int y):
+        cdef int index = (y * TV_WIDTH + x) * 3
+        cdef Pixel pixel
+        pixel.r = self.pixels[index]
+        pixel.g = self.pixels[index + 1]
+        pixel.b = self.pixels[index + 2]
+        return pixel

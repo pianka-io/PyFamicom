@@ -1,7 +1,4 @@
-import os
 from threading import Thread
-
-import psutil
 
 from com.clock import Clock
 from cpu.cpu import CPU
@@ -12,7 +9,7 @@ from ppu.ppu import PPU
 from tv.tv import TV
 
 
-class Emulator:
+cdef class Emulator:
     def __init__(self, rom: ROM, pal: Palette):
         self.running = False
         self.rom = rom
@@ -22,7 +19,7 @@ class Emulator:
         self.ppu = PPU(self.clock, self.tv, pal, self.nmi)
         self.cpu = CPU(self.clock, self.ppu, self.nmi, rom.prg_rom)
 
-    def start(self):
+    cpdef start(self):
         self.running = True
         cpu_thread = Thread(target=self.cpu.start)
         ppu_thread = Thread(target=self.ppu.start)
@@ -35,5 +32,5 @@ class Emulator:
         self.cpu.stop()
         self.ppu.stop()
 
-    def stop(self):
+    cpdef stop(self):
         self.running = False

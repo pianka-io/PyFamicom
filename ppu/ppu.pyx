@@ -1,16 +1,16 @@
 import time
 from time import sleep
 
-from com.clock import Clock
-from com.interrupt import Interrupt
-from pal.palette import Palette
-from ppu.memory import Memory
-from ppu.registers import Registers
-from tv.frame import Frame
-from tv.tv import TV
+from com.clock cimport Clock
+from com.interrupt cimport Interrupt
+from pal.palette cimport Palette
+from ppu.memory cimport Memory
+from ppu.registers cimport Registers
+from tv.frame cimport Frame
+from tv.tv cimport TV
 
 
-class PPU:
+cdef class PPU:
     def __init__(self, clock: Clock, tv: TV, pal: Palette, nmi: Interrupt):
         self.running = False
         self.clock = clock
@@ -24,7 +24,7 @@ class PPU:
         self.timer = time.perf_counter()
         self.frames = 0
 
-    def start(self):
+    cdef start(self):
         self.running = True
         while self.running:
             sleep(0)
@@ -36,15 +36,16 @@ class PPU:
             self.spin(84514)  # (240+1)×341
             self.render()
 
-    def stop(self):
+    cdef stop(self):
         self.running = False
 
-    def spin(self, cycles: int):
+    cdef spin(self, int cycles):
         self.clock.ppu_cycles += cycles
-        if not self.clock.cpu_ready():
+        if not self.clock.ppu_ready():
+            print("ppu spin")
             sleep(0)
 
-    def render(self):
+    cdef render(self):
         delta = time.perf_counter() - self.timer
         if delta > 1.0:
             print(f"Frame Rate: {self.frames}/s {self.clock.cpu_cycles}")
@@ -79,7 +80,7 @@ class PPU:
 
         self.tv.frame = frame
 
-    def pattern(self, x: int, y: int) -> int:
+    cdef int pattern(self, int x, int y):
         base = self.registers.name_table
         offset = y * 32 + x
         address = base + offset

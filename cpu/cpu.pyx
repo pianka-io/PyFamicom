@@ -1,19 +1,19 @@
 from time import sleep
 
-from com.addressing import argument_size, Addressing
-from com.clock import Clock
-from com.constants import RESET_VECTOR, CPU_STATUS, NMI_VECTOR
-from com.interrupt import Interrupt
-from com.utilities import signed_byte
-from cpu.memory import Memory
-from cpu.opcodes import ops_by_code, Op
-from cpu.registers import Registers
-from cpu.stack import Stack
-from ppu.ppu import PPU
+from com.clock cimport Clock
+from com.constants cimport RESET_VECTOR, NMI_VECTOR, CPU_STATUS_NEGATIVE, CPU_STATUS_ZERO, CPU_STATUS_CARRY, \
+    CPU_STATUS_OVERFLOW, CPU_STATUS_INTERRUPT
+from com.interrupt cimport Interrupt
+from com.utilities cimport signed_byte
+from cpu.memory cimport Memory
+from cpu.registers cimport Registers
+from cpu.stack cimport Stack
+from ppu.ppu cimport PPU
 
 
-class CPU:
+cdef class CPU:
     def __init__(self, clock: Clock, ppu: PPU, nmi: Interrupt, prg_rom: bytes):
+        self.logging = False
         self.running = False
         self.clock = clock
         self.ppu = ppu
@@ -25,7 +25,7 @@ class CPU:
 
         self.entry = self.memory.read_word(RESET_VECTOR)
 
-    def start(self):
+    cdef start(self):
         self.running = True
         self.registers.PC = self.entry
         while self.running:
@@ -37,6 +37,7 @@ class CPU:
 
             # ppu nmi interrupt
             if self.nmi.active():
+                # print(f"interrupt ${self.memory.read_byte(0xA):x}")
                 self.nmi.clear()
                 self.stack.push(self.registers.PC >> 8)
                 self.stack.push(self.registers.PC)
@@ -46,175 +47,228 @@ class CPU:
 
             # regular operation
             opcode = self.memory.read_byte(self.registers.PC)
-            if opcode not in ops_by_code:
-                print(f"unsupported opcode: ${opcode:x}")
-                break
-            op = ops_by_code[opcode]
-            arg = self.read_arg(op)
 
-            # self.print_instruction(op, arg)
-            self.registers.PC += op.size
-            self.handle_instruction(op, arg)
-            self.clock.cpu_cycles += op.cycles
+            self.registers.PC += 1
+            self.handle_instruction(opcode)
             # self.print_registers()
 
-    def stop(self):
+    cdef stop(self):
         self.running = False
 
-    def print_instruction(self, op: Op, arg: int):
-        rom_address = self.memory.translate_cpu_address_to_rom(self.registers.PC)
-        assembler = op.assembler(arg)
-        print(f"[${self.registers.PC:x}:${rom_address:x}] {assembler}")
-
-    def print_registers(self):
+    cdef print_registers(self):
         print(f"P b{self.registers.P:08b} SP ${self.registers.SP:x} A ${self.registers.A:x} X ${self.registers.X:x} Y ${self.registers.Y:x}")
 
-    def read_arg(self, op: Op) -> int:
-        begin = self.registers.PC + 1
-        size = argument_size(op.addressing)
-        if size == 0:
-            return 0
-        if size == 1:
-            return self.memory.read_byte(begin)
-        if size == 2:
-            return self.memory.read_word(begin)
-        raise ValueError(f"unsupported argument size: {size}")
-
-    def handle_instruction(self, op: Op, arg: int):
-        if op.mnemonic == "bpl":
-            self.bpl(op, arg)
-        elif op.mnemonic == "clc":
-            self.clc(op, arg)
-        elif op.mnemonic == "jsr":
-            self.jsr(op, arg)
-        elif op.mnemonic == "and":
-            self.and_(op, arg)
-        elif op.mnemonic == "bit":
-            self.bit(op, arg)
-        elif op.mnemonic == "pha":
-            self.pha(op, arg)
-        elif op.mnemonic == "rti":
-            self.rti(op, arg)
-        elif op.mnemonic == "jmp":
-            self.jmp(op, arg)
-        elif op.mnemonic == "rts":
-            self.rts(op, arg)
-        elif op.mnemonic == "pla":
-            self.pla(op, arg)
-        elif op.mnemonic == "adc":
-            self.adc(op, arg)
-        elif op.mnemonic == "sei":
-            self.sei(op, arg)
-        elif op.mnemonic == "iny":
-            self.iny(op, arg)
-        elif op.mnemonic == "dex":
-            self.dex(op, arg)
-        elif op.mnemonic == "dey":
-            self.dey(op, arg)
-        elif op.mnemonic == "txa":
-            self.txa(op, arg)
-        elif op.mnemonic == "tya":
-            self.tya(op, arg)
-        elif op.mnemonic == "tax":
-            self.tax(op, arg)
-        elif op.mnemonic == "tay":
-            self.tay(op, arg)
-        elif op.mnemonic == "sta":
-            self.sta(op, arg)
-        elif op.mnemonic == "stx":
-            self.stx(op, arg)
-        elif op.mnemonic == "sty":
-            self.sty(op, arg)
-        elif op.mnemonic == "ldx":
-            self.ldx(op, arg)
-        elif op.mnemonic == "ldy":
-            self.ldy(op, arg)
-        elif op.mnemonic == "lda":
-            self.lda(op, arg)
-        elif op.mnemonic == "cmp":
-            self.cmp(op, arg)
-        elif op.mnemonic == "bne":
-            self.bne(op, arg)
-        elif op.mnemonic == "inc":
-            self.inc(op, arg)
-        elif op.mnemonic == "inx":
-            self.inx(op, arg)
-        elif op.mnemonic == "dec":
-            self.dec(op, arg)
-        elif op.mnemonic == "nop":
-            self.nop(op, arg)
-        elif op.mnemonic == "beq":
-            self.beq(op, arg)
-        elif op.mnemonic == "bcc":
-            self.bcc(op, arg)
-        elif op.mnemonic == "eor":
-            self.eor(op, arg)
-        elif op.mnemonic == "sec":
-            self.sec(op, arg)
+    cdef handle_instruction(self, int opcode):
+        begin = self.registers.PC
+        if opcode == 0x10:
+            self.registers.PC += 1
+            self.bpl_10(self.memory.read_byte(begin))
+            self.clock.cpu_cycles += 2
+        elif opcode == 0x18:
+            self.clc_18()
+            self.clock.cpu_cycles += 2
+        elif opcode == 0x20:
+            self.registers.PC += 2
+            self.jsr_20(self.memory.read_word(begin))
+            self.clock.cpu_cycles += 6
+        elif opcode == 0x29:
+            self.registers.PC += 1
+            self.and_29(self.memory.read_byte(begin))
+            self.clock.cpu_cycles += 2
+        elif opcode == 0x2C:
+            self.registers.PC += 2
+            self.bit_2C(self.memory.read_word(begin))
+            self.clock.cpu_cycles += 4
+        elif opcode == 0x48:
+            self.pha_48()
+            self.clock.cpu_cycles += 3
+        elif opcode == 0x40:
+            self.rti_40()
+            self.clock.cpu_cycles += 6
+        elif opcode == 0x4C:
+            self.registers.PC += 2
+            self.jmp_4c(self.memory.read_word(begin))
+            self.clock.cpu_cycles += 3
+        elif opcode == 0x60:
+            self.rts_60()
+            self.clock.cpu_cycles += 6
+        elif opcode == 0x68:
+            self.pla_68()
+            self.clock.cpu_cycles += 4
+        elif opcode == 0x69:
+            self.registers.PC += 1
+            self.adc_69(self.memory.read_byte(begin))
+            self.clock.cpu_cycles += 2
+        elif opcode == 0x78:
+            self.sei_78()
+            self.clock.cpu_cycles += 2
+        elif opcode == 0x88:
+            self.dey_88()
+            self.clock.cpu_cycles += 2
+        elif opcode == 0x8A:
+            self.txa_8a()
+            self.clock.cpu_cycles += 2
+        elif opcode == 0x8D:
+            self.registers.PC += 2
+            self.sta_8d(self.memory.read_word(begin))
+            self.clock.cpu_cycles += 4
+        elif opcode == 0x85:
+            self.registers.PC += 1
+            self.sta_85(self.memory.read_byte(begin))
+            self.clock.cpu_cycles += 3
+        elif opcode == 0x86:
+            self.registers.PC += 1
+            self.stx_86(self.memory.read_byte(begin))
+            self.clock.cpu_cycles += 3
+        elif opcode == 0x8E:
+            self.registers.PC += 2
+            self.stx_8e(self.memory.read_word(begin))
+            self.clock.cpu_cycles += 4
+        elif opcode == 0x84:
+            self.registers.PC += 1
+            self.sty_84(self.memory.read_byte(begin))
+            self.clock.cpu_cycles += 3
+        elif opcode == 0x90:
+            self.registers.PC += 1
+            self.bcc_90(self.memory.read_byte(begin))
+            self.clock.cpu_cycles += 2
+        elif opcode == 0x98:
+            self.tya_98()
+            self.clock.cpu_cycles += 2
+        elif opcode == 0xA2:
+            self.registers.PC += 1
+            self.ldx_a2(self.memory.read_byte(begin))
+            self.clock.cpu_cycles += 2
+        elif opcode == 0xA0:
+            self.registers.PC += 1
+            self.ldy_a0(self.memory.read_byte(begin))
+            self.clock.cpu_cycles += 2
+        elif opcode == 0xA8:
+            self.tay_a8()
+            self.clock.cpu_cycles += 2
+        elif opcode == 0xAA:
+            self.tax_aa()
+            self.clock.cpu_cycles += 2
+        elif opcode == 0xA5:
+            self.registers.PC += 1
+            self.lda_a5(self.memory.read_byte(begin))
+            self.clock.cpu_cycles += 3
+        elif opcode == 0xA9:
+            self.registers.PC += 1
+            self.lda_a9(self.memory.read_byte(begin))
+            self.clock.cpu_cycles += 2
+        elif opcode == 0xAD:
+            self.registers.PC += 2
+            self.lda_ad(self.memory.read_word(begin))
+            self.clock.cpu_cycles += 4
+        elif opcode == 0xB1:
+            self.registers.PC += 1
+            self.lda_b1(self.memory.read_byte(begin))
+            self.clock.cpu_cycles += 5
+        elif opcode == 0xBD:
+            self.registers.PC += 2
+            self.lda_bd(self.memory.read_word(begin))
+            self.clock.cpu_cycles += 4
+        elif opcode == 0xC5:
+            self.registers.PC += 1
+            self.cmp_c5(self.memory.read_byte(begin))
+            self.clock.cpu_cycles += 3
+        elif opcode == 0xC9:
+            self.registers.PC += 1
+            self.cmp_c9(self.memory.read_byte(begin))
+            self.clock.cpu_cycles += 2
+        elif opcode == 0xC8:
+            self.iny_c8()
+            self.clock.cpu_cycles += 2
+        elif opcode == 0xCA:
+            self.dex_ca()
+            self.clock.cpu_cycles += 2
+        elif opcode == 0xCD:
+            self.registers.PC += 2
+            self.cmp_cd(self.memory.read_word(begin))
+            self.clock.cpu_cycles += 4
+        elif opcode == 0xD0:
+            self.registers.PC += 1
+            self.bne_d0(self.memory.read_byte(begin))
+            self.clock.cpu_cycles += 2
+        elif opcode == 0xE6:
+            self.registers.PC += 1
+            self.inc_e6(self.memory.read_byte(begin))
+            self.clock.cpu_cycles += 5
+        elif opcode == 0xE8:
+            self.inx_e8()
+            self.clock.cpu_cycles += 2
+        elif opcode == 0xEE:
+            self.registers.PC += 2
+            self.inc_ee(self.memory.read_word(begin))
+            self.clock.cpu_cycles += 6
+        elif opcode == 0xC6:
+            self.registers.PC += 1
+            self.dec_c6(self.memory.read_byte(begin))
+            self.clock.cpu_cycles += 5
+        elif opcode == 0xEA:
+            self.nop_ea()
+            self.clock.cpu_cycles += 2
+        elif opcode == 0xF0:
+            self.registers.PC += 1
+            self.beq_f0(self.memory.read_byte(begin))
+            self.clock.cpu_cycles += 2
+        elif opcode == 0x49:
+            self.registers.PC += 1
+            self.eor_49(self.memory.read_byte(begin))
+            self.clock.cpu_cycles += 2
+        elif opcode == 0x38:
+            self.sec_38()
+            self.clock.cpu_cycles += 2
         else:
-            raise ValueError(f"unsupported instruction: {op.mnemonic}")
+            raise ValueError(f"unsupported instruction: ${opcode:x}")
 
-    def resolve_arg(self, op: Op, arg: int) -> int:
-        if op.addressing == Addressing.ABSOLUTE:
-            return self.memory.read_byte(arg)
-        elif op.addressing == Addressing.ABSOLUTE_X:
-            address = self.registers.X + arg
-            return self.memory.read_byte(address)
-        elif op.addressing == Addressing.IMMEDIATE:
-            return arg
-        elif op.addressing == Addressing.ZERO:
-            return self.memory.read_byte(arg)
-        elif op.addressing == Addressing.RELATIVE:
-            return self.memory.read_byte(self.registers.PC + signed_byte(arg))
-        elif op.addressing == Addressing.INDIRECT_INDEXED:
-            low = self.memory.read_byte(arg)
-            high = self.memory.read_byte((arg + 1) & 0xFF)
-            base_address = (high << 8) | low
-            address = (base_address + self.registers.Y) & 0xFFFF
-            value = self.memory.read_byte(address)
-            return value
-        else:
-            raise ValueError(f"unsupported addressing mode: {op.addressing.name}")
-
-    def set_n_by(self, value: int):
+    cdef set_n_by(self, int value):
         if bool(value & 0x80):
-            self.registers.set_p(CPU_STATUS.NEGATIVE)
+            self.registers.set_p(CPU_STATUS_NEGATIVE)
         else:
-            self.registers.clear_p(CPU_STATUS.NEGATIVE)
+            self.registers.clear_p(CPU_STATUS_NEGATIVE)
 
-    def set_z_by(self, value: int):
+    cdef set_z_by(self, int value):
         if value == 0:
-            self.registers.set_p(CPU_STATUS.ZERO)
+            self.registers.set_p(CPU_STATUS_ZERO)
         else:
-            self.registers.clear_p(CPU_STATUS.ZERO)
+            self.registers.clear_p(CPU_STATUS_ZERO)
 
-    def set_c_by(self, value: int):
+    cdef set_c_by(self, int value):
         if value > 0xFF:
-            self.registers.set_p(CPU_STATUS.CARRY)
+            self.registers.set_p(CPU_STATUS_CARRY)
         else:
-            self.registers.clear_p(CPU_STATUS.CARRY)
+            self.registers.clear_p(CPU_STATUS_CARRY)
 
-    def set_v_by(self, value: int):
+    cdef set_v_by(self, int value):
         if not (value >> 8) == 0:
-            self.registers.set_p(CPU_STATUS.CARRY)
+            self.registers.set_p(CPU_STATUS_CARRY)
         else:
-            self.registers.clear_p(CPU_STATUS.CARRY)
+            self.registers.clear_p(CPU_STATUS_CARRY)
 
-    def bpl(self, op: Op, arg: int):
-        if not self.registers.is_p(CPU_STATUS.NEGATIVE):
+    cdef bpl_10(self, int arg):
+        if self.logging:
+            print(f"[${self.registers.PC:x}] bpl ${arg:X}")
+        if not self.registers.is_p(CPU_STATUS_NEGATIVE):
             self.registers.PC += signed_byte(arg)
 
-    def clc(self, op: Op, arg: int):
-        self.registers.clear_p(CPU_STATUS.CARRY)
+    cdef clc_18(self):
+        if self.logging:
+            print(f"[${self.registers.PC:x}] clc")
+        self.registers.clear_p(CPU_STATUS_CARRY)
 
-    def jsr(self, op: Op, arg: int):
-        if op.addressing == Addressing.ABSOLUTE:
-                value = self.registers.PC.to_bytes(length=2, byteorder="little")
-                self.stack.push(value[0])
-                self.stack.push(value[1])
-                self.registers.PC = arg
+    cdef jsr_20(self, int arg):
+        if self.logging:
+            print(f"[${self.registers.PC:x}] jsr ${arg:X}")
+        value = self.registers.PC.to_bytes(length=2, byteorder="little")
+        self.stack.push(value[0])
+        self.stack.push(value[1])
+        self.registers.PC = arg
 
-    def and_(self, op: Op, arg: int):
+    cdef and_29(self, int arg):
+        if self.logging:
+            print(f"[${self.registers.PC:x}] and ${arg:X}")
         a = self.registers.A
         value = a & arg
         self.registers.A = value & 0xFF
@@ -222,52 +276,63 @@ class CPU:
         self.set_n_by(value)
         self.set_z_by(value)
 
-    def bit(self, op: Op, arg: int):
-        value = self.resolve_arg(op, arg)
+    cdef bit_2C(self, int arg):
+        if self.logging:
+            print(f"[${self.registers.PC:x}] bit ${arg:X}")
+        value = self.memory.read_byte(arg)
 
         # M7 -> N, M6 -> V
         nv = value & 0b11000000
-        self.registers.clear_p(CPU_STATUS.NEGATIVE)
-        self.registers.clear_p(CPU_STATUS.OVERFLOW)
+        self.registers.clear_p(CPU_STATUS_NEGATIVE)
+        self.registers.clear_p(CPU_STATUS_OVERFLOW)
         p = self.registers.P | nv
         self.registers.P = p
 
         # A AND M -> Z
         result = self.registers.A & value
         if result == 0:
-            self.registers.set_p(CPU_STATUS.ZERO)
+            self.registers.set_p(CPU_STATUS_ZERO)
         else:
-            self.registers.clear_p(CPU_STATUS.ZERO)
+            self.registers.clear_p(CPU_STATUS_ZERO)
 
-    def pha(self, op: Op, arg: int):
+    cdef pha_48(self):
+        if self.logging:
+            print(f"[${self.registers.PC:x}] pha")
         self.stack.push(self.registers.A)
 
-    def rti(self, op: Op, arg: int):
+    cdef rti_40(self):
+        if self.logging:
+            print(f"[${self.registers.PC:x}] rti")
         self.registers.P = self.stack.pull()
         low = self.stack.pull()
         high = self.stack.pull()
         self.registers.PC = (high << 8) | low
 
-    def jmp(self, op: Op, arg: int):
-        if op.addressing == Addressing.ABSOLUTE:
-            self.registers.PC = arg
-        else:
-            raise ValueError(f"unsupported addressing mode: {op.addressing.name}")
+    cdef jmp_4c(self, int arg):
+        if self.logging:
+            print(f"[${self.registers.PC:x}] jmp ${arg:X}")
+        self.registers.PC = arg
 
-    def rts(self, op: Op, arg: int):
+    cdef rts_60(self):
+        if self.logging:
+            print(f"[${self.registers.PC:x}] rts")
         low = self.stack.pull()
         high = self.stack.pull()
         self.registers.PC = int.from_bytes([high, low], byteorder='little')
 
-    def pla(self, op: Op, arg: int):
+    cdef pla_68(self):
+        if self.logging:
+            print(f"[${self.registers.PC:x}] pla")
         value = self.stack.pull()
         self.registers.A = value & 0xFF
         self.set_n_by(self.registers.A)
         self.set_z_by(self.registers.A)
 
-    def adc(self, op: Op, arg: int):
-        value = self.resolve_arg(op, arg)
-        carry = 1 if self.registers.is_p(CPU_STATUS.CARRY) else 0
+    cdef adc_69(self, int arg):
+        if self.logging:
+            print(f"[${self.registers.PC:x}] adc ${arg:X}")
+        value = self.memory.read_byte(arg)
+        carry = 1 if self.registers.is_p(CPU_STATUS_CARRY) else 0
         total = self.registers.A + value + carry
         self.registers.A = total & 0xFF
 
@@ -276,92 +341,151 @@ class CPU:
         self.set_c_by(total)
         # self.set_v_by(total)
         if ((self.registers.A ^ total) & (value ^ total) & 0x80) != 0:
-            self.registers.set_p(CPU_STATUS.OVERFLOW)
+            self.registers.set_p(CPU_STATUS_OVERFLOW)
         else:
-            self.registers.clear_p(CPU_STATUS.OVERFLOW)
+            self.registers.clear_p(CPU_STATUS_OVERFLOW)
 
-    def sei(self, op: Op, arg: int):
-        self.registers.set_p(CPU_STATUS.INTERRUPT)
+    cdef sei_78(self):
+        if self.logging:
+            print(f"[${self.registers.PC:x}] sei")
+        self.registers.set_p(CPU_STATUS_INTERRUPT)
 
-    def iny(self, op: Op, arg: int):
+    cdef iny_c8(self):
+        if self.logging:
+            print(f"[${self.registers.PC:x}] iny")
         self.registers.Y = (self.registers.Y + 1) & 0xFF
         self.set_n_by(self.registers.Y)
         self.set_z_by(self.registers.Y)
 
-    def dex(self, op: Op, arg: int):
+    cdef dex_ca(self):
+        if self.logging:
+            print(f"[${self.registers.PC:x}] dex")
         self.registers.X = (self.registers.X - 1) & 0xFF
         self.set_n_by(self.registers.X)
         self.set_z_by(self.registers.X)
 
-    def dey(self, op: Op, arg: int):
+    cdef dey_88(self):
+        if self.logging:
+            print(f"[${self.registers.PC:x}] dey")
         self.registers.Y = (self.registers.Y - 1) & 0xFF
         self.set_n_by(self.registers.Y)
         self.set_z_by(self.registers.Y)
 
-    def txa(self, op: Op, arg: int):
+    cdef txa_8a(self):
+        if self.logging:
+            print(f"[${self.registers.PC:x}] lxa")
         self.registers.A = self.registers.X & 0xFF
         self.set_n_by(self.registers.A)
         self.set_z_by(self.registers.A)
 
-    def tya(self, op: Op, arg: int):
+    cdef tya_98(self):
+        if self.logging:
+            print(f"[${self.registers.PC:x}] tya")
         self.registers.A = self.registers.Y & 0xFF
         self.set_n_by(self.registers.A)
         self.set_z_by(self.registers.A)
 
-    def tax(self, op: Op, arg: int):
+    cdef tax_aa(self):
+        if self.logging:
+            print(f"[${self.registers.PC:x}] tax")
         self.registers.X = self.registers.A & 0xFF
         self.set_n_by(self.registers.X)
         self.set_z_by(self.registers.X)
 
-    def tay(self, op: Op, arg: int):
+    cdef tay_a8(self):
+        if self.logging:
+            print(f"[${self.registers.PC:x}] tay")
         self.registers.Y = self.registers.A & 0xFF
         self.set_n_by(self.registers.Y)
         self.set_z_by(self.registers.Y)
 
-    def sta(self, op: Op, arg: int):
-        if op.addressing == Addressing.ABSOLUTE:
-            self.memory.write_byte(arg, self.registers.A)
-        elif op.addressing == Addressing.ZERO:
-            self.memory.write_byte(arg, self.registers.A)
-        else:
-            raise ValueError(f"unsupported addressing mode: {op.addressing.name}")
+    cdef sta_8d(self, int arg):
+        if self.logging:
+            print(f"[${self.registers.PC:x}] sta ${arg:X}")
+        self.memory.write_byte(arg, self.registers.A)
 
-    def stx(self, op: Op, arg: int):
-        if op.addressing == Addressing.ABSOLUTE:
-            self.memory.write_byte(arg, self.registers.X)
-        elif op.addressing == Addressing.ZERO:
-            self.memory.write_byte(arg, self.registers.X)
-        else:
-            raise ValueError(f"unsupported addressing mode: {op.addressing.name}")
+    cdef sta_85(self, int arg):
+        if self.logging:
+            print(f"[${self.registers.PC:x}] sta ${arg:X}")
+        self.memory.write_byte(arg, self.registers.A)
 
-    def sty(self, op: Op, arg: int):
-        if op.addressing == Addressing.ABSOLUTE:
-            self.memory.write_byte(arg, self.registers.Y)
-        elif op.addressing == Addressing.ZERO:
-            self.memory.write_byte(arg, self.registers.Y)
-        else:
-            raise ValueError(f"unsupported addressing mode: {op.addressing.name}")
+    cdef stx_86(self, int arg):
+        if self.logging:
+            print(f"[${self.registers.PC:x}] stx ${arg:X}")
+        self.memory.write_byte(arg, self.registers.X)
 
-    def ldx(self, op: Op, arg: int):
-        value = self.resolve_arg(op, arg)
-        self.registers.X = value
+    cdef stx_8e(self, int arg):
+        if self.logging:
+            print(f"[${self.registers.PC:x}] stx ${arg:X}")
+        self.memory.write_byte(arg, self.registers.X)
+
+    cdef sty_84(self, int arg):
+        if self.logging:
+            print(f"[${self.registers.PC:x}] stx ${arg:X}")
+        self.memory.write_byte(arg, self.registers.Y)
+
+    cdef ldx_a2(self, int arg):
+        if self.logging:
+            print(f"[${self.registers.PC:x}] ldx ${arg:X}")
+        self.registers.X = arg & 0xFF
         self.set_n_by(self.registers.X)
         self.set_z_by(self.registers.X)
 
-    def ldy(self, op: Op, arg: int):
-        value = self.resolve_arg(op, arg)
-        self.registers.Y = value & 0xFF
+    cdef ldy_a0(self, int arg):
+        if self.logging:
+            print(f"[${self.registers.PC:x}] ldy ${arg:X}")
+        self.registers.Y = arg & 0xFF
         self.set_n_by(self.registers.Y)
         self.set_z_by(self.registers.Y)
 
-    def lda(self, op: Op, arg: int):
-        value = self.resolve_arg(op, arg)
+    cdef lda_a5(self, int arg):  # zero
+        if self.logging:
+            print(f"[${self.registers.PC:x}] lda ${arg:X}")
+        value = self.memory.read_byte(arg)
         self.registers.A = value & 0xFF
         self.set_n_by(self.registers.A)
         self.set_z_by(self.registers.A)
 
-    def cmp(self, op: Op, arg: int):
-        value = self.resolve_arg(op, arg)
+    cdef lda_a9(self, int arg):  # immediate
+        if self.logging:
+            print(f"[${self.registers.PC:x}] lda ${arg:X}")
+        self.registers.A = arg & 0xFF
+        self.set_n_by(self.registers.A)
+        self.set_z_by(self.registers.A)
+
+    cdef lda_ad(self, int arg):  # absolute
+        if self.logging:
+            print(f"[${self.registers.PC:x}] lda ${arg:X}")
+        value = self.memory.read_byte(arg)
+        self.registers.A = value & 0xFF
+        self.set_n_by(self.registers.A)
+        self.set_z_by(self.registers.A)
+
+    cdef lda_b1(self, int arg):  # indirect indexed
+        if self.logging:
+            print(f"[${self.registers.PC:x}] lda ${arg:X}")
+        low = self.memory.read_byte(arg)
+        high = self.memory.read_byte((arg + 1) & 0xFF)
+        base_address = (high << 8) | low
+        address = (base_address + self.registers.Y) & 0xFFFF
+        value = self.memory.read_byte(address)
+        self.registers.A = value & 0xFF
+        self.set_n_by(self.registers.A)
+        self.set_z_by(self.registers.A)
+
+    cdef lda_bd(self, int arg):  # absolute x
+        if self.logging:
+            print(f"[${self.registers.PC:x}] lda ${arg:X}")
+        address = self.registers.X + arg
+        value = self.memory.read_byte(address)
+        self.registers.A = value & 0xFF
+        self.set_n_by(self.registers.A)
+        self.set_z_by(self.registers.A)
+
+    cdef cmp_c5(self, int arg):  # zero
+        if self.logging:
+            print(f"[${self.registers.PC:x}] cmp_c5 ${arg:X}")
+        value = self.memory.read_byte(arg)
         result = self.registers.A - value
         result = signed_byte(result)
 
@@ -369,44 +493,90 @@ class CPU:
         self.set_z_by(result)
         self.set_c_by(result)
 
-    def bne(self, op: Op, arg: int):
-        if not self.registers.is_p(CPU_STATUS.ZERO):
+    cdef cmp_c9(self, int arg):  # immediate
+        if self.logging:
+            print(f"[${self.registers.PC:x}] cmp_c9 ${arg:X}")
+        result = self.registers.A - arg
+        result = signed_byte(result)
+
+        self.set_n_by(result)
+        self.set_z_by(result)
+        self.set_c_by(result)
+
+    cdef cmp_cd(self, int arg):  # absolute
+        if self.logging:
+            print(f"[${self.registers.PC:x}] cmp_cd ${arg:X}")
+        value = self.memory.read_byte(arg)
+        result = self.registers.A - value
+        result = signed_byte(result)
+
+        self.set_n_by(result)
+        self.set_z_by(result)
+        self.set_c_by(result)
+
+    cdef bne_d0(self, int arg):
+        if self.logging:
+            print(f"[${self.registers.PC:x}] bne ${arg:X}")
+        if not self.registers.is_p(CPU_STATUS_ZERO):
             self.registers.PC = self.registers.PC + signed_byte(arg)
 
-    def inc(self, op: Op, arg: int):
-        value = (self.resolve_arg(op, arg) + 1) & 0xFF
+    cdef inc_e6(self, int arg):  # zero
+        if self.logging:
+            print(f"[${self.registers.PC:x}] inc_e6 ${arg:X}")
+        value = (self.memory.read_byte(arg) + 1) & 0xFF
         self.memory.write_byte(arg, value)
         self.set_n_by(value)
         self.set_z_by(value)
 
-    def inx(self, op: Op, arg: int):
+    cdef inc_ee(self, int arg):  # absolute
+        if self.logging:
+            print(f"[${self.registers.PC:x}] inc_ee ${arg:X}")
+        value = (self.memory.read_byte(arg) + 1) & 0xFF
+        self.memory.write_byte(arg, value)
+        self.set_n_by(value)
+        self.set_z_by(value)
+
+    cdef inx_e8(self):
+        if self.logging:
+            print(f"[${self.registers.PC:x}] inx")
         self.registers.X = (self.registers.X + 1) & 0xFF
         self.set_n_by(self.registers.X)
         self.set_z_by(self.registers.X)
 
-    def dec(self, op: Op, arg: int):
-        value = (self.resolve_arg(op, arg) - 1) & 0xFF
+    cdef dec_c6(self, int arg):  # zero
+        if self.logging:
+            print(f"[${self.registers.PC:x}] dec ${arg:X}")
+        value = (self.memory.read_byte(arg) - 1) & 0xFF
         self.memory.write_byte(arg, value)
         self.set_n_by(value)
         self.set_z_by(value)
 
-    def nop(self, op: Op, arg: int):
+    cdef nop_ea(self):
+        if self.logging:
+            print(f"[${self.registers.PC:x}] nop")
         ...
 
-    def beq(self, op: Op, arg: int):
-        if self.registers.is_p(CPU_STATUS.ZERO):
+    cdef beq_f0(self, int arg):
+        if self.logging:
+            print(f"[${self.registers.PC:x}] beq ${arg:X}")
+        if self.registers.is_p(CPU_STATUS_ZERO):
             self.registers.PC = self.registers.PC + signed_byte(arg)
 
-    def bcc(self, op: Op, arg: int):
-        if not self.registers.is_p(CPU_STATUS.CARRY):
+    cdef bcc_90(self, int arg):
+        if self.logging:
+            print(f"[${self.registers.PC:x}] bcc ${arg:X}")
+        if not self.registers.is_p(CPU_STATUS_CARRY):
             self.registers.PC = self.registers.PC + signed_byte(arg)
 
-    def eor(self, op: Op, arg: int):
-        value = self.resolve_arg(op, arg)
-        result = self.registers.A ^ value
+    cdef eor_49(self, int arg):  # immediate
+        if self.logging:
+            print(f"[${self.registers.PC:x}] eor ${arg:X}")
+        result = self.registers.A ^ arg
         self.registers.A = result
         self.set_n_by(result)
         self.set_z_by(result)
 
-    def sec(self, op: Op, arg: int):
-        self.registers.set_p(CPU_STATUS.CARRY)
+    cdef sec_38(self):
+        if self.logging:
+            print(f"[${self.registers.PC:x}] sec")
+        self.registers.set_p(CPU_STATUS_CARRY)

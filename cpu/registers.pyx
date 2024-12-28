@@ -1,4 +1,4 @@
-class Registers:
+cdef class Registers:
     def __init__(self):
         self.A = 0
         self.X = 0
@@ -8,11 +8,11 @@ class Registers:
         self.SP = 0
         self.PC = 0
 
-    def is_p(self, flag: int) -> bool:
+    cdef bint is_p(self, int flag):
         return self.P & flag == flag
 
-    def set_p(self, flag: int):
+    cdef set_p(self, int flag):
         self.P |= flag
 
-    def clear_p(self, flag: int):
+    cdef clear_p(self, int flag):
         self.P &= ~flag

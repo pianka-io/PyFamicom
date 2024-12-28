@@ -1,4 +1,6 @@
-class Header:
+from os import PathLike
+
+cdef class Header:
     def __init__(self, nes: str, prg_rom: int, chr_rom: int, flags: int):
         self.nes = nes
         self.prg_rom = prg_rom
@@ -6,7 +8,7 @@ class Header:
         self.flags = flags
 
 
-class ROM:
+cdef class ROM:
     def __init__(self, header: Header, prg_rom: bytes):
         self.header = header
         self.prg_rom = prg_rom

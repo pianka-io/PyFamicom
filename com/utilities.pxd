@@ -1,0 +1,1 @@
+cdef int signed_byte(int value)

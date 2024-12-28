@@ -1,4 +1,4 @@
-class Palette:
+cdef class Palette:
     def __init__(self, colors: bytes):
         self.colors = colors
 
@@ -9,6 +9,6 @@ class Palette:
 
         return Palette(colors)
 
-    def color(self, index: int) -> (int, int, int):
+    cdef (int, int, int) color(self, int index):
         offset = index * 3
         return tuple(self.colors[offset:offset+3])
