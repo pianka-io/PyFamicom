@@ -18,8 +18,11 @@ cdef class PPU:
     cdef double timer
     cdef int frames
 
-    cdef start(self)
-    cdef stop(self)
-    cdef spin(self, int cycles)
-    cdef render(self)
-    cdef int pattern(self, int x, int y)
+    cdef void start(self) nogil
+    cdef void stop(self) nogil
+    cdef void spin(self, int cycles) nogil
+    cdef void render(self) nogil
+    cdef int pattern(self, int x, int y) nogil
+    cdef void write_pixel(self, char[] frame, int x, int y, int r, int g, int b) nogil
+    cdef double perf_counter(self) nogil
+    cdef void pause(self, double seconds) nogil

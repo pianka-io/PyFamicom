@@ -1,5 +1,5 @@
 cdef class Clock:
     cdef int cpu_cycles
     cdef int ppu_cycles
-    cdef cpu_ready(self)
-    cdef ppu_ready(self)
+    cdef bint cpu_ready(self) nogil
+    cdef bint ppu_ready(self) nogil

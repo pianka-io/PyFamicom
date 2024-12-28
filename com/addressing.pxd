@@ -13,4 +13,4 @@ cdef int ADDR_INDEXED_INDIRECT
 cdef int ADDR_INDIRECT_INDEXED
 
 
-cdef int argument_size(int addressing)
+cdef int argument_size(int addressing) nogil

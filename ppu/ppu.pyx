@@ -1,13 +1,14 @@
 import time
-from time import sleep
 
 from com.clock cimport Clock
+from com.constants cimport TV_WIDTH
 from com.interrupt cimport Interrupt
+from com.pixel cimport Pixel
 from pal.palette cimport Palette
 from ppu.memory cimport Memory
 from ppu.registers cimport Registers
-from tv.frame cimport Frame
 from tv.tv cimport TV
+
 
 
 cdef class PPU:
@@ -21,39 +22,62 @@ cdef class PPU:
         self.registers = Registers(self.memory)
         self.dump = 0
 
-        self.timer = time.perf_counter()
+        self.timer = self.perf_counter()
         self.frames = 0
 
-    cdef start(self):
+    cdef void start(self) nogil:
         self.running = True
         while self.running:
-            sleep(0)
+            self.pause(0)
             self.spin(2273)  # 20 * 341
             self.registers.set_vblank()
             self.nmi.trigger()
-            time.sleep(0.000423)  # 2273 PPU cycles, and the PPU runs at 5.369318 MHz
+            self.pause(0.000423)  # 2273 PPU cycles
             self.registers.clear_vblank()
             self.spin(84514)  # (240+1)×341
             self.render()
 
-    cdef stop(self):
+    cdef void stop(self) nogil:
         self.running = False
 
-    cdef spin(self, int cycles):
-        self.clock.ppu_cycles += cycles
+    cdef void spin(self, int cycles) nogil:
+        cdef int value = self.clock.ppu_cycles + cycles
+        self.clock.ppu_cycles = value
         if not self.clock.ppu_ready():
-            print("ppu spin")
-            sleep(0)
+            self.pause(0)
 
-    cdef render(self):
-        delta = time.perf_counter() - self.timer
+    cdef void render(self) nogil:
+        cdef double delta
+        with gil:
+            delta = self.perf_counter() - self.timer
         if delta > 1.0:
-            print(f"Frame Rate: {self.frames}/s {self.clock.cpu_cycles}")
-            self.timer = time.perf_counter()
+            with gil:
+                print(f"Frame Rate: {self.frames}/s {self.clock.cpu_cycles}")
+                self.timer = self.perf_counter()
             self.frames = 0
         self.frames += 1
 
-        frame = Frame()
+        cdef int attribute_table_address
+        cdef int attribute_address
+        cdef int attribute_byte
+        cdef int shift
+        cdef int palette_index
+        cdef int pattern_index
+        cdef int tile_address
+        cdef int low_byte
+        cdef int high_byte
+        cdef int pixel_value
+        cdef int palette_address
+        cdef int color_index
+        cdef Pixel pixel
+        cdef int pixel_x
+        cdef int pixel_y
+        cdef int tile_x
+        cdef int tile_y
+        cdef int row
+        cdef int col
+
+        cdef char[256*240*3] frame
         self.dump += 1
         for tile_y in range(30):
             for tile_x in range(32):
@@ -69,19 +93,35 @@ cdef class PPU:
                 for row in range(8):
                     low_byte = self.memory.read_byte(tile_address + row)
                     high_byte = self.memory.read_byte(tile_address + row + 8)
-                    for bit in range(8):
-                        pixel_value = (((high_byte >> (7 - bit)) & 1) << 1) | ((low_byte >> (7 - bit)) & 1)
+                    for col in range(8):
+                        pixel_value = (((high_byte >> (7 - col)) & 1) << 1) | ((low_byte >> (7 - col)) & 1)
                         palette_address = 0x3F00 + (palette_index * 4) + pixel_value
                         color_index = self.memory.read_byte(palette_address)
-                        r, g, b = self.pal.color(color_index)
-                        pixel_x = tile_x * 8 + bit
+                        pixel = self.pal.color(color_index)
+                        pixel_x = tile_x * 8 + col
                         pixel_y = tile_y * 8 + row
-                        frame.write_pixel(pixel_x, pixel_y, r, g, b)
+                        self.write_pixel(frame, pixel_x, pixel_y, pixel.r, pixel.g, pixel.b)
 
         self.tv.frame = frame
 
-    cdef int pattern(self, int x, int y):
-        base = self.registers.name_table
-        offset = y * 32 + x
-        address = base + offset
+    cdef int pattern(self, int x, int y) nogil:
+        cdef int base = self.registers.name_table
+        cdef int offset = y * 32 + x
+        cdef int address = base + offset
         return self.memory.read_byte(address)
+
+    cdef void write_pixel(self, char[] frame, int x, int y, int r, int g, int b) nogil:
+        cdef int index = (y * TV_WIDTH + x) * 3
+        frame[index] = r
+        frame[index + 1] = g
+        frame[index + 2] = b
+
+    cdef double perf_counter(self) nogil:
+        cdef double now
+        with gil:
+            now = time.perf_counter()
+        return now
+
+    cdef void pause(self, double seconds) nogil:
+        with gil:
+            time.sleep(seconds)

@@ -23,13 +23,13 @@ cdef class Registers:
     cdef int sprite_pattern_table
     cdef int background_pattern_table
 
-    cdef int read_byte(self, int address)
-    cdef write_byte(self, int address, int value)
-    cdef int read_ppuaddr(self)
-    cdef write_ppuaddr(self, int value)
-    cdef bint is_ppuctrl(self, int flag)
-    cdef set_ppuctrl(self)
-    cdef clear_ppuctrl(self, int flag)
-    cdef set_vblank(self)
-    cdef clear_vblank(self)
+    cdef int read_byte(self, int address) nogil
+    cdef void write_byte(self, int address, int value) nogil
+    cdef int read_ppuaddr(self) nogil
+    cdef void write_ppuaddr(self, int value) nogil
+    cdef bint is_ppuctrl(self, int flag) nogil
+    cdef void set_ppuctrl(self) nogil
+    cdef void clear_ppuctrl(self, int flag) nogil
+    cdef void set_vblank(self) nogil
+    cdef void clear_vblank(self) nogil
     

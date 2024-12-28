@@ -2,11 +2,11 @@ cdef class Interrupt:
     def __init__(self):
         self.__triggered = False
 
-    cdef trigger(self):
+    cdef void trigger(self) nogil:
         self.__triggered = True
 
-    cdef active(self):
+    cdef bint active(self) nogil:
         return self.__triggered
 
-    cdef clear(self):
+    cdef void clear(self) nogil:
         self.__triggered = False

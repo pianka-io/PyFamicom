@@ -1,6 +1,6 @@
 cdef class Interrupt:
     cdef bint __triggered
 
-    cdef trigger(self)
-    cdef active(self)
-    cdef clear(self)
+    cdef void trigger(self) nogil
+    cdef bint active(self) nogil
+    cdef void clear(self) nogil

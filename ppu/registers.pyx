@@ -28,7 +28,7 @@ cdef class Registers:
         self.sprite_pattern_table = PATTERN_TABLE_OFFSET_0
         self.background_pattern_table = PATTERN_TABLE_OFFSET_0
 
-    cdef int read_byte(self, int address):
+    cdef int read_byte(self, int address) nogil:
         if address == PPU_REGISTER_PPUCTRL: return self.PPUCTRL
         elif address == PPU_REGISTER_PPUMASK: return self.PPUMASK
         elif address == PPU_REGISTER_PPUSTATUS: return self.PPUSTATUS
@@ -47,7 +47,11 @@ cdef class Registers:
         else:
             raise ValueError(f"unknown address ${address:x}")
 
-    cdef write_byte(self, int address, int value):
+    cdef void write_byte(self, int address, int value) nogil:
+        cdef int ppuaddr
+        cdef int increment
+        cdef int result
+
         if address == PPU_REGISTER_PPUCTRL:
             self.PPUCTRL = value
             # name table
@@ -78,29 +82,36 @@ cdef class Registers:
             ppuaddr = self.read_ppuaddr()
             self.memory.write_byte(ppuaddr, self.PPUDATA)
             increment = 32 if (self.PPUCTRL & 0b100) else 1
-            self.write_ppuaddr((ppuaddr + increment) & 0x3FFF)
+            result = (ppuaddr + increment) & 0x3FFF
+            with gil:
+                self.write_ppuaddr(result)
             # print(f"[@VRAM:${ppuaddr:x}] ${self.PPUDATA:x}")
         elif address == PPU_REGISTER_OAMDMA: self.OAMDMA = value
         else:
             raise ValueError(f"unknown address ${address:x}")
 
-    cdef int read_ppuaddr(self):
-        return int.from_bytes(self.PPUADDR, byteorder="little")
+    cdef int read_ppuaddr(self) nogil:
+        return (<int> (self.PPUADDR[1]) << 8) | <int> (self.PPUADDR[0])
 
-    cdef write_ppuaddr(self, int value):
-        self.PPUADDR = bytearray(value.to_bytes(2, byteorder="little"))
+    cdef void write_ppuaddr(self, int value) nogil:
+        cdef char[2] ppuaddr_bytes
+        ppuaddr_bytes[0] = <char> (value & 0xFF)
+        ppuaddr_bytes[1] = <char> ((value >> 8) & 0xFF)
 
-    cdef bint is_ppuctrl(self, int flag):
+        self.PPUADDR[0] = ppuaddr_bytes[0]
+        self.PPUADDR[1] = ppuaddr_bytes[1]
+
+    cdef bint is_ppuctrl(self, int flag) nogil:
         return self.PPUCTRL & flag == flag
 
-    cdef set_ppuctrl(self):
+    cdef void set_ppuctrl(self) nogil:
         self.PPUSTATUS |= PPUSTATUS_VBLANK
 
-    cdef clear_ppuctrl(self, int flag):
+    cdef void clear_ppuctrl(self, int flag) nogil:
         self.PPUCTRL &= ~flag
 
-    cdef set_vblank(self):
+    cdef void set_vblank(self) nogil:
         self.PPUSTATUS |= PPUSTATUS_VBLANK
 
-    cdef clear_vblank(self):
+    cdef void clear_vblank(self) nogil:
         self.PPUSTATUS &= ~PPUSTATUS_VBLANK

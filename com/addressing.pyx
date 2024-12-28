@@ -13,7 +13,7 @@ cdef int ADDR_INDEXED_INDIRECT = 12
 cdef int ADDR_INDIRECT_INDEXED = 13
 
 
-cdef int argument_size(int addressing):
+cdef int argument_size(int addressing) nogil:
     if addressing == ADDR_IMPLICIT:
         return 0
     if addressing in [ADDR_IMMEDIATE, ADDR_RELATIVE, ADDR_ZERO, ADDR_INDIRECT_INDEXED]:

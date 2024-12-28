@@ -1,5 +1,4 @@
-import cProfile
-import pstats
+import yappi
 
 from emu.emulator import Emulator
 from ines.rom import ROM
@@ -11,13 +10,12 @@ def main():
     pal = Palette.load("bin/pals/Composite.pal")
     emu = Emulator(rom, pal)
 
-    profiler = cProfile.Profile()
-    profiler.enable()
+    yappi.start()
     emu.start()
-    profiler.disable()
+    yappi.stop()
 
-    stats = pstats.Stats(profiler)
-    stats.sort_stats("cumulative").print_stats(50)
+    yappi.get_thread_stats().print_all()
+    # yappi.get_func_stats().print_all()
 
 
 if __name__ == '__main__':

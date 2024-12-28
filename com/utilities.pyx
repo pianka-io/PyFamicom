@@ -1,4 +1,4 @@
-cdef int signed_byte(int value):
+cdef int signed_byte(int value) nogil:
     if value > 127:
         return value - 256
     else:
