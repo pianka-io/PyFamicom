@@ -1,5 +1,3 @@
-from threading import Thread
-
 from com.clock import Clock
 from cpu.cpu import CPU
 from com.interrupt import Interrupt
@@ -20,17 +18,14 @@ cdef class Emulator:
         self.cpu = CPU(self.clock, self.ppu, self.nmi, rom.prg_rom)
 
     cpdef start(self):
-        self.running = True
-        cpu_thread = Thread(target=self.cpu.start)
-        ppu_thread = Thread(target=self.ppu.start)
-
-        ppu_thread.start()
-        cpu_thread.start()
-
-        self.tv.start()
-
-        self.cpu.stop()
-        self.ppu.stop()
+        with nogil:
+            self.running = True
+            while self.running:
+                while not self.clock.ppu_ready():
+                    self.cpu.tick()
+                self.ppu.tick()
+                with gil:
+                    self.tv.tick()
 
     cpdef stop(self):
         self.running = False

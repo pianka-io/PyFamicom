@@ -10,6 +10,7 @@ def main():
     pal = Palette.load("bin/pals/Composite.pal")
     emu = Emulator(rom, pal)
 
+    yappi.set_clock_type("wall")
     yappi.start()
     emu.start()
     yappi.stop()

@@ -16,10 +16,9 @@ cdef class CPU:
     cdef Memory memory
     cdef Stack stack
     cdef int entry
+    cdef int timer
 
-    cdef void start(self) nogil
-    cdef void stop(self) nogil
-    cdef void pause(self, double seconds) nogil
+    cdef void tick(self) nogil
     cdef void track_cycles(self, int cycles) nogil
     cdef void advance_pc(self, int offset) nogil
     # cdef void print_registers(self) nogil

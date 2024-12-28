@@ -20,31 +20,25 @@ cdef class PPU:
         self.nmi = nmi
         self.memory = Memory()
         self.registers = Registers(self.memory)
-        self.dump = 0
 
         self.timer = self.perf_counter()
         self.frames = 0
+        self.vblank = True
 
-    cdef void start(self) nogil:
-        self.running = True
-        while self.running:
-            self.pause(0)
-            self.spin(2273)  # 20 * 341
+    cdef void tick(self) nogil:
+        if self.vblank:
             self.registers.set_vblank()
             self.nmi.trigger()
-            self.pause(0.000423)  # 2273 PPU cycles
+            self.track_cycles(2273)
+        else:
             self.registers.clear_vblank()
-            self.spin(84514)  # (240+1)×341
             self.render()
+            self.track_cycles(84514)
+        self.vblank = not self.vblank
 
-    cdef void stop(self) nogil:
-        self.running = False
-
-    cdef void spin(self, int cycles) nogil:
-        cdef int value = self.clock.ppu_cycles + cycles
-        self.clock.ppu_cycles = value
-        if not self.clock.ppu_ready():
-            self.pause(0)
+    cdef void track_cycles(self, int cycles) nogil:
+        cdef int result = self.clock.ppu_cycles + cycles
+        self.clock.ppu_cycles = result
 
     cdef void render(self) nogil:
         cdef double delta
@@ -78,7 +72,6 @@ cdef class PPU:
         cdef int col
 
         cdef char[256*240*3] frame
-        self.dump += 1
         for tile_y in range(30):
             for tile_x in range(32):
                 attribute_table_address = self.registers.name_table + 0x03C0

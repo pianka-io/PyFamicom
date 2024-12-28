@@ -7,4 +7,4 @@ cdef class Clock:
         return True
 
     cdef bint ppu_ready(self) nogil:
-        return self.ppu_cycles >= self.cpu_cycles * 3
+        return self.cpu_cycles >= self.ppu_cycles * 3

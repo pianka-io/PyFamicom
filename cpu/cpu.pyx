@@ -24,38 +24,35 @@ cdef class CPU:
         self.stack = Stack(self.registers, self.memory)
 
         self.entry = self.memory.read_word(RESET_VECTOR)
-
-    cdef void start(self) nogil:
-        self.running = True
         self.registers.PC = self.entry
-        while self.running:
-            self.pause(0)
-            # clock synchronization
-            if not self.clock.cpu_ready():
-                self.pause(0)
+        self.timer = time.perf_counter()
 
-            # ppu nmi interrupt
-            if self.nmi.active():
-                self.nmi.clear()
-                self.stack.push(self.registers.PC >> 8)
-                self.stack.push(self.registers.PC)
-                self.stack.push(self.registers.P)
-                self.registers.PC = self.memory.read_byte(NMI_VECTOR) | (self.memory.read_byte(NMI_VECTOR + 1) << 8)
-                continue
-
-            # regular operation
-            opcode = self.memory.read_byte(self.registers.PC)
-
-            self.advance_pc(1)
-            self.handle_instruction(opcode)
-            # self.print_registers()
-
-    cdef void stop(self) nogil:
-        self.running = False
-
-    cdef void pause(self, double seconds) nogil:
+    cdef void tick(self) nogil:
+        # with gil:
+        #     print(f"cpu {self.clock.cpu_cycles}")
+        # self.pause(0)
+        cdef int delta
         with gil:
-            time.sleep(seconds)
+            delta = time.perf_counter() - self.timer
+            if delta > 1.0:
+                self.timer = time.perf_counter()
+                print(self.clock.cpu_cycles)
+
+        # ppu nmi interrupt
+        if self.nmi.active():
+            self.nmi.clear()
+            self.stack.push(self.registers.PC >> 8)
+            self.stack.push(self.registers.PC)
+            self.stack.push(self.registers.P)
+            self.registers.PC = self.memory.read_byte(NMI_VECTOR) | (self.memory.read_byte(NMI_VECTOR + 1) << 8)
+            return
+
+        # regular operation
+        opcode = self.memory.read_byte(self.registers.PC)
+
+        self.advance_pc(1)
+        self.handle_instruction(opcode)
+        # self.print_registers()
             
     cdef void track_cycles(self, int cycles) nogil:
         cdef int value = self.clock.cpu_cycles + cycles
