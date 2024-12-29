@@ -23,6 +23,20 @@ setup(
     ext_modules=cythonize(
         find_pyx_files(".", exclude_dirs=[".venv"]),
         language_level=3,
+        compiler_directives={
+            "boundscheck": False,
+            "cdivision": True,
+            "cdivision_warnings": False,
+            "infer_types": True,
+            "initializedcheck": False,
+            "nonecheck": False,
+            "overflowcheck": False,
+            # "profile" : True,
+            # "linetrace": True,
+            "wraparound": False,
+            # "legacy_implicit_noexcept": True,
+        }
     ),
+
     zip_safe=False,
 )

@@ -1,14 +1,16 @@
-from time import sleep
+# cython: profile=True
+# cython: linetrace=True
 
 import pygame
 
 from com.constants cimport TV_WIDTH, TV_HEIGHT, TV_SCALE
 from com.pixel cimport Pixel
 
+from com.interrupt cimport Interrupt
 
 cdef class TV:
-    def __init__(self):
-        self.running = False
+    def __init__(self, quit: Interrupt):
+        self.quit = quit
         pygame.init()
         pygame.display.set_caption("PyFamicom")
         self.screen = pygame.display.set_mode((TV_WIDTH * TV_SCALE, TV_HEIGHT * TV_SCALE))
@@ -17,9 +19,9 @@ cdef class TV:
     cdef void tick(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                self.running = False
-
-        # sleep(0.1667)
+                self.quit.trigger()
+                pygame.quit()
+                return
 
         for y in range(TV_HEIGHT):
             for x in range(TV_WIDTH):
@@ -30,12 +32,7 @@ cdef class TV:
         self.screen.blit(scaled_surface, (0, 0))
         pygame.display.flip()
 
-        # pygame.quit()
-
-    cdef void stop(self) nogil:
-        self.running = False
-
-    cdef Pixel read_pixel(self, int x, int y) noexcept nogil:
+    cdef inline Pixel read_pixel(self, int x, int y) noexcept nogil:
         cdef int index = (y * TV_WIDTH + x) * 3
         cdef Pixel pixel
         pixel.r = self.frame[index]

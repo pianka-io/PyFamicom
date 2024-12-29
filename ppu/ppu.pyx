@@ -1,3 +1,6 @@
+# cython: profile=True
+# cython: linetrace=True
+
 import time
 
 from com.clock cimport Clock
@@ -13,7 +16,6 @@ from tv.tv cimport TV
 
 cdef class PPU:
     def __init__(self, clock: Clock, tv: TV, pal: Palette, nmi: Interrupt):
-        self.running = False
         self.clock = clock
         self.tv = tv
         self.pal = pal
@@ -25,7 +27,7 @@ cdef class PPU:
         self.frames = 0
         self.vblank = True
 
-    cdef void tick(self) nogil:
+    cdef void tick(self) noexcept nogil:
         if self.vblank:
             self.registers.set_vblank()
             self.nmi.trigger()
@@ -36,11 +38,11 @@ cdef class PPU:
             self.track_cycles(84514)
         self.vblank = not self.vblank
 
-    cdef void track_cycles(self, int cycles) nogil:
+    cdef inline void track_cycles(self, int cycles) noexcept nogil:
         cdef int result = self.clock.ppu_cycles + cycles
         self.clock.ppu_cycles = result
 
-    cdef void render(self) nogil:
+    cdef inline void render(self) noexcept nogil:
         cdef double delta
         with gil:
             delta = self.perf_counter() - self.timer
@@ -97,24 +99,20 @@ cdef class PPU:
 
         self.tv.frame = frame
 
-    cdef int pattern(self, int x, int y) nogil:
+    cdef inline int pattern(self, int x, int y) noexcept nogil:
         cdef int base = self.registers.name_table
         cdef int offset = y * 32 + x
         cdef int address = base + offset
         return self.memory.read_byte(address)
 
-    cdef void write_pixel(self, char[] frame, int x, int y, int r, int g, int b) nogil:
+    cdef inline void write_pixel(self, char[] frame, int x, int y, int r, int g, int b) noexcept nogil:
         cdef int index = (y * TV_WIDTH + x) * 3
         frame[index] = r
         frame[index + 1] = g
         frame[index + 2] = b
 
-    cdef double perf_counter(self) nogil:
+    cdef inline double perf_counter(self) noexcept nogil:
         cdef double now
         with gil:
             now = time.perf_counter()
         return now
-
-    cdef void pause(self, double seconds) nogil:
-        with gil:
-            time.sleep(seconds)

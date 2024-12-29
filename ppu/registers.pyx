@@ -1,3 +1,6 @@
+# cython: profile=True
+# cython: linetrace=True
+
 from com.constants cimport PPUSTATUS_VBLANK, PATTERN_TABLE_OFFSET_0, PATTERN_TABLE_OFFSET_1, \
     NAME_TABLE_OFFSET, PPU_REGISTER_PPUCTRL, PPU_REGISTER_PPUMASK, PPU_REGISTER_PPUSTATUS, PPU_REGISTER_OAMADDR, \
     PPU_REGISTER_OAMDATA, PPU_REGISTER_PPUSCROLL, PPU_REGISTER_PPUADDR, PPU_REGISTER_PPUDATA, PPU_REGISTER_OAMDMA, \
@@ -28,7 +31,7 @@ cdef class Registers:
         self.sprite_pattern_table = PATTERN_TABLE_OFFSET_0
         self.background_pattern_table = PATTERN_TABLE_OFFSET_0
 
-    cdef int read_byte(self, int address) nogil:
+    cdef inline int read_byte(self, int address) noexcept nogil:
         if address == PPU_REGISTER_PPUCTRL: return self.PPUCTRL
         elif address == PPU_REGISTER_PPUMASK: return self.PPUMASK
         elif address == PPU_REGISTER_PPUSTATUS: return self.PPUSTATUS
@@ -47,7 +50,7 @@ cdef class Registers:
         else:
             raise ValueError(f"unknown address ${address:x}")
 
-    cdef void write_byte(self, int address, int value) nogil:
+    cdef inline void write_byte(self, int address, int value) noexcept nogil:
         cdef int ppuaddr
         cdef int increment
         cdef int result
@@ -90,10 +93,10 @@ cdef class Registers:
         else:
             raise ValueError(f"unknown address ${address:x}")
 
-    cdef int read_ppuaddr(self) nogil:
+    cdef inline int read_ppuaddr(self) noexcept nogil:
         return (<int> (self.PPUADDR[1]) << 8) | <int> (self.PPUADDR[0])
 
-    cdef void write_ppuaddr(self, int value) nogil:
+    cdef inline void write_ppuaddr(self, int value) noexcept nogil:
         cdef char[2] ppuaddr_bytes
         ppuaddr_bytes[0] = <char> (value & 0xFF)
         ppuaddr_bytes[1] = <char> ((value >> 8) & 0xFF)
@@ -101,17 +104,17 @@ cdef class Registers:
         self.PPUADDR[0] = ppuaddr_bytes[0]
         self.PPUADDR[1] = ppuaddr_bytes[1]
 
-    cdef bint is_ppuctrl(self, int flag) nogil:
+    cdef inline bint is_ppuctrl(self, int flag) noexcept nogil:
         return self.PPUCTRL & flag == flag
 
-    cdef void set_ppuctrl(self) nogil:
+    cdef inline void set_ppuctrl(self) noexcept nogil:
         self.PPUSTATUS |= PPUSTATUS_VBLANK
 
-    cdef void clear_ppuctrl(self, int flag) nogil:
+    cdef inline void clear_ppuctrl(self, int flag) noexcept nogil:
         self.PPUCTRL &= ~flag
 
-    cdef void set_vblank(self) nogil:
+    cdef inline void set_vblank(self) noexcept nogil:
         self.PPUSTATUS |= PPUSTATUS_VBLANK
 
-    cdef void clear_vblank(self) nogil:
+    cdef inline void clear_vblank(self) noexcept nogil:
         self.PPUSTATUS &= ~PPUSTATUS_VBLANK

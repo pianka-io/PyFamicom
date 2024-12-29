@@ -1,3 +1,6 @@
+# cython: profile=True
+# cython: linetrace=True
+
 from com.clock import Clock
 from cpu.cpu import CPU
 from com.interrupt import Interrupt
@@ -13,14 +16,14 @@ cdef class Emulator:
         self.rom = rom
         self.clock = Clock()
         self.nmi = Interrupt()
-        self.tv = TV()
+        self.quit = Interrupt()
+        self.tv = TV(self.quit)
         self.ppu = PPU(self.clock, self.tv, pal, self.nmi)
         self.cpu = CPU(self.clock, self.ppu, self.nmi, rom.prg_rom)
 
     cpdef start(self):
         with nogil:
-            self.running = True
-            while self.running:
+            while not self.quit.active() and not self.running:
                 while not self.clock.ppu_ready():
                     self.cpu.tick()
                 self.ppu.tick()

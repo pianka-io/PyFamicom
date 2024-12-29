@@ -1,4 +1,5 @@
-import time
+# cython: profile=True
+# cython: linetrace=True
 
 from com.clock cimport Clock
 from com.constants cimport RESET_VECTOR, NMI_VECTOR, CPU_STATUS_NEGATIVE, CPU_STATUS_ZERO, CPU_STATUS_CARRY, \
@@ -13,8 +14,6 @@ from ppu.ppu cimport PPU
 
 cdef class CPU:
     def __init__(self, clock: Clock, ppu: PPU, nmi: Interrupt, prg_rom: bytes):
-        self.logging = False
-        self.running = False
         self.clock = clock
         self.ppu = ppu
         self.nmi = nmi
@@ -25,19 +24,8 @@ cdef class CPU:
 
         self.entry = self.memory.read_word(RESET_VECTOR)
         self.registers.PC = self.entry
-        self.timer = time.perf_counter()
 
-    cdef void tick(self) nogil:
-        # with gil:
-        #     print(f"cpu {self.clock.cpu_cycles}")
-        # self.pause(0)
-        cdef int delta
-        with gil:
-            delta = time.perf_counter() - self.timer
-            if delta > 1.0:
-                self.timer = time.perf_counter()
-                print(self.clock.cpu_cycles)
-
+    cdef void tick(self) noexcept nogil:
         # ppu nmi interrupt
         if self.nmi.active():
             self.nmi.clear()
@@ -54,18 +42,18 @@ cdef class CPU:
         self.handle_instruction(opcode)
         # self.print_registers()
             
-    cdef void track_cycles(self, int cycles) nogil:
+    cdef inline void track_cycles(self, int cycles) noexcept nogil:
         cdef int value = self.clock.cpu_cycles + cycles
         self.clock.cpu_cycles = value
             
-    cdef void advance_pc(self, int offset) nogil:
+    cdef inline void advance_pc(self, int offset) noexcept nogil:
         cdef int value = self.registers.PC + offset
         self.registers.PC = value
 
-    # cdef print_registers(self) nogil:
+    # cdef print_registers(self) noexcept nogil:
     #     print(f"P b{self.registers.P:08b} SP ${self.registers.SP:x} A ${self.registers.A:x} X ${self.registers.X:x} Y ${self.registers.Y:x}")
 
-    cdef void handle_instruction(self, int opcode) nogil:
+    cdef inline void handle_instruction(self, int opcode) noexcept nogil:
         begin = self.registers.PC
         if opcode == 0x10:
             self.advance_pc(1)
@@ -230,40 +218,40 @@ cdef class CPU:
         else:
             raise ValueError(f"unsupported instruction: ${opcode:x}")
 
-    cdef void set_n_by(self, int value) nogil:
+    cdef inline void set_n_by(self, int value) noexcept nogil:
         if value & 0x80:
             self.registers.set_p(CPU_STATUS_NEGATIVE)
         else:
             self.registers.clear_p(CPU_STATUS_NEGATIVE)
 
-    cdef void set_z_by(self, int value) nogil:
+    cdef inline void set_z_by(self, int value) noexcept nogil:
         if value == 0:
             self.registers.set_p(CPU_STATUS_ZERO)
         else:
             self.registers.clear_p(CPU_STATUS_ZERO)
 
-    cdef void set_c_by(self, int value) nogil:
+    cdef inline void set_c_by(self, int value) noexcept nogil:
         if value > 0xFF:
             self.registers.set_p(CPU_STATUS_CARRY)
         else:
             self.registers.clear_p(CPU_STATUS_CARRY)
 
-    cdef void set_v_by(self, int value) nogil:
+    cdef inline void set_v_by(self, int value) noexcept nogil:
         if not (value >> 8) == 0:
             self.registers.set_p(CPU_STATUS_CARRY)
         else:
             self.registers.clear_p(CPU_STATUS_CARRY)
 
-    cdef void bpl_10(self, int arg) nogil:
+    cdef inline void bpl_10(self, int arg) noexcept nogil:
         cdef int value
         if not self.registers.is_p(CPU_STATUS_NEGATIVE):
             value = self.registers.PC + signed_byte(arg)
             self.registers.PC = value
 
-    cdef void clc_18(self) nogil:
+    cdef inline void clc_18(self) noexcept nogil:
         self.registers.clear_p(CPU_STATUS_CARRY)
 
-    cdef void jsr_20(self, int arg) nogil:
+    cdef inline void jsr_20(self, int arg) noexcept nogil:
         cdef unsigned char low_byte, high_byte
         low_byte = <unsigned char> (self.registers.PC & 0xFF)
         high_byte = <unsigned char> ((self.registers.PC >> 8) & 0xFF)
@@ -272,7 +260,7 @@ cdef class CPU:
         self.stack.push(high_byte)
         self.registers.PC = arg
 
-    cdef void and_29(self, int arg) nogil:
+    cdef inline void and_29(self, int arg) noexcept nogil:
         cdef int a = self.registers.A
         cdef int value = a & arg
         self.registers.A = value & 0xFF
@@ -280,7 +268,7 @@ cdef class CPU:
         self.set_n_by(value)
         self.set_z_by(value)
 
-    cdef void bit_2C(self, int arg) nogil:
+    cdef inline void bit_2C(self, int arg) noexcept nogil:
         cdef int value = self.memory.read_byte(arg)
 
         # M7 -> N, M6 -> V
@@ -297,30 +285,30 @@ cdef class CPU:
         else:
             self.registers.clear_p(CPU_STATUS_ZERO)
 
-    cdef void pha_48(self) nogil:
+    cdef inline void pha_48(self) noexcept nogil:
         self.stack.push(self.registers.A)
 
-    cdef void rti_40(self) nogil:
+    cdef inline void rti_40(self) noexcept nogil:
         self.registers.P = self.stack.pull()
         cdef int low = self.stack.pull()
         cdef int high = self.stack.pull()
         self.registers.PC = (high << 8) | low
 
-    cdef void jmp_4c(self, int arg) nogil:
+    cdef inline void jmp_4c(self, int arg) noexcept nogil:
         self.registers.PC = arg
 
-    cdef void rts_60(self) nogil:
+    cdef inline void rts_60(self) noexcept nogil:
         cdef unsigned char high = self.stack.pull()
         cdef unsigned char low = self.stack.pull()
         self.registers.PC = (<int> high << 8) | <int> low
 
-    cdef void pla_68(self) nogil:
+    cdef inline void pla_68(self) noexcept nogil:
         cdef int value = self.stack.pull()
         self.registers.A = value & 0xFF
         self.set_n_by(self.registers.A)
         self.set_z_by(self.registers.A)
 
-    cdef void adc_69(self, int arg) nogil:
+    cdef inline void adc_69(self, int arg) noexcept nogil:
         cdef int value = self.memory.read_byte(arg)
         cdef int carry = 1 if self.registers.is_p(CPU_STATUS_CARRY) else 0
         cdef int total = self.registers.A + value + carry
@@ -335,87 +323,87 @@ cdef class CPU:
         else:
             self.registers.clear_p(CPU_STATUS_OVERFLOW)
 
-    cdef void sei_78(self) nogil:
+    cdef inline void sei_78(self) noexcept nogil:
         self.registers.set_p(CPU_STATUS_INTERRUPT)
 
-    cdef void iny_c8(self) nogil:
+    cdef inline void iny_c8(self) noexcept nogil:
         self.registers.Y = (self.registers.Y + 1) & 0xFF
         self.set_n_by(self.registers.Y)
         self.set_z_by(self.registers.Y)
 
-    cdef void dex_ca(self) nogil:
+    cdef inline void dex_ca(self) noexcept nogil:
         self.registers.X = (self.registers.X - 1) & 0xFF
         self.set_n_by(self.registers.X)
         self.set_z_by(self.registers.X)
 
-    cdef void dey_88(self) nogil:
+    cdef inline void dey_88(self) noexcept nogil:
         self.registers.Y = (self.registers.Y - 1) & 0xFF
         self.set_n_by(self.registers.Y)
         self.set_z_by(self.registers.Y)
 
-    cdef void txa_8a(self) nogil:
+    cdef inline void txa_8a(self) noexcept nogil:
         self.registers.A = self.registers.X & 0xFF
         self.set_n_by(self.registers.A)
         self.set_z_by(self.registers.A)
 
-    cdef void tya_98(self) nogil:
+    cdef inline void tya_98(self) noexcept nogil:
         self.registers.A = self.registers.Y & 0xFF
         self.set_n_by(self.registers.A)
         self.set_z_by(self.registers.A)
 
-    cdef void tax_aa(self) nogil:
+    cdef inline void tax_aa(self) noexcept nogil:
         self.registers.X = self.registers.A & 0xFF
         self.set_n_by(self.registers.X)
         self.set_z_by(self.registers.X)
 
-    cdef void tay_a8(self) nogil:
+    cdef inline void tay_a8(self) noexcept nogil:
         self.registers.Y = self.registers.A & 0xFF
         self.set_n_by(self.registers.Y)
         self.set_z_by(self.registers.Y)
 
-    cdef void sta_8d(self, int arg) nogil:
+    cdef inline void sta_8d(self, int arg) noexcept nogil:
         self.memory.write_byte(arg, self.registers.A)
 
-    cdef void sta_85(self, int arg) nogil:
+    cdef inline void sta_85(self, int arg) noexcept nogil:
         self.memory.write_byte(arg, self.registers.A)
 
-    cdef void stx_86(self, int arg) nogil:
+    cdef inline void stx_86(self, int arg) noexcept nogil:
         self.memory.write_byte(arg, self.registers.X)
 
-    cdef void stx_8e(self, int arg) nogil:
+    cdef inline void stx_8e(self, int arg) noexcept nogil:
         self.memory.write_byte(arg, self.registers.X)
 
-    cdef void sty_84(self, int arg) nogil:
+    cdef inline void sty_84(self, int arg) noexcept nogil:
         self.memory.write_byte(arg, self.registers.Y)
 
-    cdef void ldx_a2(self, int arg) nogil:
+    cdef inline void ldx_a2(self, int arg) noexcept nogil:
         self.registers.X = arg & 0xFF
         self.set_n_by(self.registers.X)
         self.set_z_by(self.registers.X)
 
-    cdef void ldy_a0(self, int arg) nogil:
+    cdef inline void ldy_a0(self, int arg) noexcept nogil:
         self.registers.Y = arg & 0xFF
         self.set_n_by(self.registers.Y)
         self.set_z_by(self.registers.Y)
 
-    cdef void lda_a5(self, int arg) nogil:  # zero
+    cdef inline void lda_a5(self, int arg) noexcept nogil:  # zero
         value = self.memory.read_byte(arg)
         self.registers.A = value & 0xFF
         self.set_n_by(self.registers.A)
         self.set_z_by(self.registers.A)
 
-    cdef void lda_a9(self, int arg) nogil:  # immediate
+    cdef inline void lda_a9(self, int arg) noexcept nogil:  # immediate
         self.registers.A = arg & 0xFF
         self.set_n_by(self.registers.A)
         self.set_z_by(self.registers.A)
 
-    cdef void lda_ad(self, int arg) nogil:  # absolute
+    cdef inline void lda_ad(self, int arg) noexcept nogil:  # absolute
         value = self.memory.read_byte(arg)
         self.registers.A = value & 0xFF
         self.set_n_by(self.registers.A)
         self.set_z_by(self.registers.A)
 
-    cdef void lda_b1(self, int arg) nogil:  # indirect indexed
+    cdef inline void lda_b1(self, int arg) noexcept nogil:  # indirect indexed
         cdef int low = self.memory.read_byte(arg)
         cdef int high = self.memory.read_byte((arg + 1) & 0xFF)
         cdef int base_address = (high << 8) | low
@@ -425,14 +413,14 @@ cdef class CPU:
         self.set_n_by(self.registers.A)
         self.set_z_by(self.registers.A)
 
-    cdef void lda_bd(self, int arg) nogil:  # absolute x
+    cdef inline void lda_bd(self, int arg) noexcept nogil:  # absolute x
         cdef int address = self.registers.X + arg
         cdef int value = self.memory.read_byte(address)
         self.registers.A = value & 0xFF
         self.set_n_by(self.registers.A)
         self.set_z_by(self.registers.A)
 
-    cdef void cmp_c5(self, int arg) nogil:  # zero
+    cdef inline void cmp_c5(self, int arg) noexcept nogil:  # zero
         cdef int value = self.memory.read_byte(arg)
         cdef int result = self.registers.A - value
         result = signed_byte(result)
@@ -441,7 +429,7 @@ cdef class CPU:
         self.set_z_by(result)
         self.set_c_by(result)
 
-    cdef void cmp_c9(self, int arg) nogil:  # immediate
+    cdef inline void cmp_c9(self, int arg) noexcept nogil:  # immediate
         cdef int result = self.registers.A - arg
         result = signed_byte(result)
 
@@ -449,7 +437,7 @@ cdef class CPU:
         self.set_z_by(result)
         self.set_c_by(result)
 
-    cdef void cmp_cd(self, int arg) nogil:  # absolute
+    cdef inline void cmp_cd(self, int arg) noexcept nogil:  # absolute
         cdef int value = self.memory.read_byte(arg)
         cdef int result = self.registers.A - value
         result = signed_byte(result)
@@ -458,49 +446,49 @@ cdef class CPU:
         self.set_z_by(result)
         self.set_c_by(result)
 
-    cdef void bne_d0(self, int arg) nogil:
+    cdef inline void bne_d0(self, int arg) noexcept nogil:
         if not self.registers.is_p(CPU_STATUS_ZERO):
             self.registers.PC = self.registers.PC + signed_byte(arg)
 
-    cdef void inc_e6(self, int arg) nogil:  # zero
+    cdef inline void inc_e6(self, int arg) noexcept nogil:  # zero
         cdef int value = (self.memory.read_byte(arg) + 1) & 0xFF
         self.memory.write_byte(arg, value)
         self.set_n_by(value)
         self.set_z_by(value)
 
-    cdef void inc_ee(self, int arg) nogil:  # absolute
+    cdef inline void inc_ee(self, int arg) noexcept nogil:  # absolute
         cdef int value = (self.memory.read_byte(arg) + 1) & 0xFF
         self.memory.write_byte(arg, value)
         self.set_n_by(value)
         self.set_z_by(value)
 
-    cdef void inx_e8(self) nogil:
+    cdef inline void inx_e8(self) noexcept nogil:
         self.registers.X = (self.registers.X + 1) & 0xFF
         self.set_n_by(self.registers.X)
         self.set_z_by(self.registers.X)
 
-    cdef void dec_c6(self, int arg) nogil:  # zero
+    cdef inline void dec_c6(self, int arg) noexcept nogil:  # zero
         cdef int value = (self.memory.read_byte(arg) - 1) & 0xFF
         self.memory.write_byte(arg, value)
         self.set_n_by(value)
         self.set_z_by(value)
 
-    cdef void nop_ea(self) nogil:
+    cdef inline void nop_ea(self) noexcept nogil:
         ...
 
-    cdef void beq_f0(self, int arg) nogil:
+    cdef inline void beq_f0(self, int arg) noexcept nogil:
         if self.registers.is_p(CPU_STATUS_ZERO):
             self.registers.PC = self.registers.PC + signed_byte(arg)
 
-    cdef void bcc_90(self, int arg) nogil:
+    cdef inline void bcc_90(self, int arg) noexcept nogil:
         if not self.registers.is_p(CPU_STATUS_CARRY):
             self.registers.PC = self.registers.PC + signed_byte(arg)
 
-    cdef void eor_49(self, int arg) nogil:  # immediate
+    cdef inline void eor_49(self, int arg) noexcept nogil:  # immediate
         cdef int result = self.registers.A ^ arg
         self.registers.A = result
         self.set_n_by(result)
         self.set_z_by(result)
 
-    cdef void sec_38(self) nogil:
+    cdef inline void sec_38(self) noexcept nogil:
         self.registers.set_p(CPU_STATUS_CARRY)

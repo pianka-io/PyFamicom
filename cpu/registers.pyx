@@ -1,3 +1,6 @@
+# cython: profile=True
+# cython: linetrace=True
+
 cdef class Registers:
     def __init__(self):
         self.A = 0
@@ -8,11 +11,11 @@ cdef class Registers:
         self.SP = 0
         self.PC = 0
 
-    cdef bint is_p(self, int flag) nogil:
+    cdef inline bint is_p(self, int flag) noexcept nogil:
         return self.P & flag == flag
 
-    cdef void set_p(self, int flag) nogil:
+    cdef inline void set_p(self, int flag) noexcept nogil:
         self.P |= flag
 
-    cdef void clear_p(self, int flag) nogil:
+    cdef inline void clear_p(self, int flag) noexcept nogil:
         self.P &= ~flag

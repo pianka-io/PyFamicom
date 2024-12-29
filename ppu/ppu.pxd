@@ -6,7 +6,6 @@ from ppu.registers cimport Registers
 from tv.tv cimport TV
 
 cdef class PPU:
-    cdef bint running
     cdef Clock clock
     cdef TV tv
     cdef Palette pal
@@ -18,10 +17,9 @@ cdef class PPU:
     cdef double timer
     cdef int frames
 
-    cdef void tick(self) nogil
-    cdef void track_cycles(self, int cycles) nogil
-    cdef void render(self) nogil
-    cdef int pattern(self, int x, int y) nogil
-    cdef void write_pixel(self, char[] frame, int x, int y, int r, int g, int b) nogil
-    cdef double perf_counter(self) nogil
-    cdef void pause(self, double seconds) nogil
+    cdef void tick(self) noexcept nogil
+    cdef inline void track_cycles(self, int cycles) noexcept nogil
+    cdef inline void render(self) noexcept nogil
+    cdef inline int pattern(self, int x, int y) noexcept nogil
+    cdef inline void write_pixel(self, char[] frame, int x, int y, int r, int g, int b) noexcept nogil
+    cdef inline double perf_counter(self) noexcept nogil

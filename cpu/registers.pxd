@@ -6,6 +6,6 @@ cdef class Registers:
     cdef int SP
     cdef int PC
     
-    cdef bint is_p(self, int flag) nogil
-    cdef void set_p(self, int flag) nogil
-    cdef void clear_p(self, int flag) nogil
+    cdef inline bint is_p(self, int flag) noexcept nogil
+    cdef inline void set_p(self, int flag) noexcept nogil
+    cdef inline void clear_p(self, int flag) noexcept nogil

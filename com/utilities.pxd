@@ -1,1 +1,1 @@
-cdef int signed_byte(int value) nogil
+cdef int signed_byte(int value) noexcept nogil

@@ -11,6 +11,7 @@ cdef class Emulator:
     cdef ROM rom
     cdef Clock clock
     cdef Interrupt nmi
+    cdef Interrupt quit
     cdef TV tv
     cdef PPU ppu
     cdef CPU cpu

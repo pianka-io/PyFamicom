@@ -1,4 +1,5 @@
-from os import PathLike
+# cython: profile=True
+# cython: linetrace=True
 
 cdef class Header:
     def __init__(self, nes: str, prg_rom: int, chr_rom: int, flags: int):

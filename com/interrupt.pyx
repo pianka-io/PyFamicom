@@ -1,12 +1,15 @@
+# cython: profile=True
+# cython: linetrace=True
+
 cdef class Interrupt:
     def __init__(self):
         self.__triggered = False
 
-    cdef void trigger(self) nogil:
+    cdef inline void trigger(self) noexcept nogil:
         self.__triggered = True
 
-    cdef bint active(self) nogil:
+    cdef inline bint active(self) noexcept nogil:
         return self.__triggered
 
-    cdef void clear(self) nogil:
+    cdef inline void clear(self) noexcept nogil:
         self.__triggered = False

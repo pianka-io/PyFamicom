@@ -1,3 +1,6 @@
+# cython: profile=True
+# cython: linetrace=True
+
 from com.pixel cimport Pixel
 
 
@@ -14,7 +17,7 @@ cdef class Palette:
 
         return Palette(contents)
 
-    cdef Pixel color(self, int index) nogil:
+    cdef Pixel color(self, int index) noexcept nogil:
         cdef int offset = index * 3
         cdef Pixel result
         cdef const char * raw_colors = <const char *> self.colors
